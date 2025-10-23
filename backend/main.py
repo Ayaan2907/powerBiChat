@@ -9,10 +9,18 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 app = FastAPI(title="Power BI AI Chatbot API")
 
-# Configure CORS for Next.js frontend
+# Configure CORS for Next.js frontend and external services (ngrok, etc.)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],
+    allow_origins=[
+        "http://localhost:3000", 
+        "http://localhost:3001",
+        "https://*.ngrok.io",
+        "https://*.ngrok-free.app",
+        "https://*.vercel.app",
+        "https://*.netlify.app"
+    ],
+    allow_origin_regex=r"https://.*\.ngrok\.io|https://.*\.ngrok-free\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

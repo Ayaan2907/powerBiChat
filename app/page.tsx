@@ -1,41 +1,60 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { useUser, UserButton } from "@clerk/nextjs"
 import { PowerBIEmbed } from "@/components/powerbi-embed"
 import { AIChat } from "@/components/ai-chat"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Settings, AlertCircle, Loader2 } from "lucide-react"
-import type { PowerBIConfig } from "@/lib/powerbi-types"
-import { getPowerBIConfig } from "@/lib/powerbi-types"
+import { Settings, AlertCircle, Loader2, RefreshCw, Clock, User } from "lucide-react"
+import { usePowerBIToken } from "@/hooks/use-powerbi-token"
 
 export default function Page() {
   const [showSetup, setShowSetup] = useState(false)
-  const [powerBIConfig, setPowerBIConfig] = useState<PowerBIConfig | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string>("")
+  const { isLoaded, isSignedIn, user } = useUser()
+  const { config: powerBIConfig, isLoading, error, refreshToken, timeUntilExpiry } = usePowerBIToken()
 
-  useEffect(() => {
-    async function loadConfig() {
-      try {
-        const config = await getPowerBIConfig()
-        setPowerBIConfig(config)
-      } catch (err) {
-        setError("Failed to load Power BI configuration")
-      } finally {
-        setIsLoading(false)
-      }
+  // Helper function to format time until expiry
+  const formatTimeUntilExpiry = (milliseconds: number | null) => {
+    if (!milliseconds || milliseconds <= 0) return "Expired"
+    
+    const minutes = Math.floor(milliseconds / (1000 * 60))
+    const hours = Math.floor(minutes / 60)
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes % 60}m`
     }
-    loadConfig()
-  }, [])
+    return `${minutes}m`
+  }
 
-  if (isLoading) {
+  // Show loading while Clerk is initializing
+  if (!isLoaded || isLoading) {
     return (
       <main className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-          <p className="text-sm text-muted-foreground">Loading Power BI configuration...</p>
+          <p className="text-sm text-muted-foreground">
+            {!isLoaded ? "Loading authentication..." : "Loading Power BI configuration..."}
+          </p>
+        </div>
+      </main>
+    )
+  }
+
+  // Redirect to sign-in if not authenticated (this should be handled by middleware, but as a fallback)
+  if (!isSignedIn) {
+    return (
+      <main className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <User className="h-12 w-12 mx-auto text-muted-foreground" />
+          <div>
+            <h2 className="text-xl font-semibold">Authentication Required</h2>
+            <p className="text-sm text-muted-foreground mt-2">Please sign in to access the Power BI dashboard</p>
+          </div>
+          <Button asChild>
+            <a href="/sign-in">Sign In</a>
+          </Button>
         </div>
       </main>
     )
@@ -149,12 +168,48 @@ export default function Page() {
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold">Power BI Analytics</h1>
-            <p className="text-sm text-muted-foreground">AI-powered insights for your data</p>
+            <p className="text-sm text-muted-foreground">
+              Welcome back, {user?.firstName || user?.emailAddresses[0]?.emailAddress || 'User'}! AI-powered insights for your data
+            </p>
           </div>
-          <Button variant="outline" size="sm" onClick={() => setShowSetup(!showSetup)}>
-            <Settings className="h-4 w-4 mr-2" />
-            Setup
-          </Button>
+          <div className="flex items-center gap-3">
+            {/* Token Status */}
+            {powerBIConfig && (
+              <div className="flex items-center gap-2 text-sm">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">
+                  Token expires in: {formatTimeUntilExpiry(timeUntilExpiry)}
+                </span>
+              </div>
+            )}
+            
+            {/* Manual Refresh Button */}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={refreshToken}
+              disabled={isLoading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh Token
+            </Button>
+            
+            <Button variant="outline" size="sm" onClick={() => setShowSetup(!showSetup)}>
+              <Settings className="h-4 w-4 mr-2" />
+              Setup
+            </Button>
+            
+            {/* User Profile Button */}
+            <UserButton 
+              appearance={{
+                elements: {
+                  avatarBox: "w-8 h-8",
+                  userButtonPopoverCard: "shadow-lg",
+                },
+              }}
+              afterSignOutUrl="/sign-in"
+            />
+          </div>
         </div>
       </header>
 

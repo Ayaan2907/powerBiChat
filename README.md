@@ -2,14 +2,133 @@
 
 An intelligent Power BI analytics dashboard that uses AI to provide insights on your current view. The chatbot analyzes only the visible data in your reports without accessing backend formulas or the full dataset.
 
+## 🚀 Quick Start
+
+### 1. One-Command Setup
+
+#### 🐧 **macOS/Linux**
+```bash
+pnpm install && python -m venv .venv && source .venv/bin/activate && cd backend && pip install -r requirements.txt && cd .. && (pnpm dev &) && cd backend && uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+#### 🪟 **Windows**
+```cmd
+pnpm install && python -m venv .venv && .venv\Scripts\activate && cd backend && pip install -r requirements.txt && cd .. && start /b pnpm dev && cd backend && uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### 2. Step-by-Step (if you prefer)
+
+```bash
+# 1. Setup
+pnpm install
+python -m venv .venv
+
+# 2. Activate environment
+source .venv/bin/activate    # macOS/Linux
+# OR
+.venv\Scripts\activate       # Windows
+
+# 3. Install backend
+cd backend && pip install -r requirements.txt && cd ..
+
+# 4. Start both servers
+pnpm dev                     # Frontend (Terminal 1)
+cd backend && uvicorn main:app --reload  # Backend (Terminal 2)
+```
+
+### 3. Access Your App
+
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:8000
+- **API Docs**: http://localhost:8000/docs
+
+### 5. Authentication
+
+The app includes Clerk authentication:
+- First visit will redirect to sign-in
+- Create an account or sign in with existing credentials
+- Access your Power BI dashboard after authentication
+
+---
+
+## 📋 Required Environment Variables
+
+Ensure your `.env.local` file contains:
+
+```bash
+# Clerk Authentication (get from https://dashboard.clerk.com/)
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_your-publishable-key-here
+CLERK_SECRET_KEY=sk_test_your-secret-key-here
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/
+NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/
+
+# Power BI Configuration (Azure AD App Registration)
+POWERBI_CLIENT_ID=your-azure-app-client-id
+POWERBI_CLIENT_SECRET=your-azure-app-client-secret
+POWERBI_TENANT_ID=your-azure-tenant-id
+POWERBI_SCOPE=https://analysis.windows.net/powerbi/api/.default
+POWERBI_REPORT_ID=your-powerbi-report-id
+POWERBI_WORKSPACE_ID=your-powerbi-workspace-id
+POWERBI_DATASET_ID=your-powerbi-dataset-id
+POWERBI_EMBED_URL=https://app.powerbi.com/reportEmbed
+
+# OpenAI API (for AI insights)
+OPENAI_API_KEY=sk-proj-your-openai-api-key-here
+```
+
+> **Note**: Copy `.env.example` to `.env.local` and fill in your actual values.
+
+---
+
+## 🔐 Clerk Authentication Integration
+
+This project includes a complete Clerk authentication system with the following features:
+
+### **What's Implemented:**
+- ✅ **User Authentication** - Sign in/sign up with email and password
+- ✅ **Route Protection** - Middleware protects all routes except public ones
+- ✅ **User Management** - UserButton component for profile and sign out
+- ✅ **Session Management** - Automatic session handling and persistence
+- ✅ **Responsive UI** - Custom styled authentication pages
+
+### **Files Added/Modified:**
+- **`middleware.ts`** - Route protection using `clerkMiddleware`
+- **`app/layout.tsx`** - Wrapped with `ClerkProvider`
+- **`app/page.tsx`** - Added user authentication checks and UserButton
+- **`app/sign-in/[[...sign-in]]/page.tsx`** - Custom sign-in page
+- **`app/sign-up/[[...sign-up]]/page.tsx`** - Custom sign-up page
+- **`.env.local`** - Added Clerk environment variables
+
+### **Protected Routes:**
+- **Dashboard** (`/`) - Requires authentication
+- **All other routes** - Protected by default
+
+### **Public Routes:**
+- **Sign In** (`/sign-in`) - Authentication page
+- **Sign Up** (`/sign-up`) - Registration page
+- **API Webhooks** (`/api/webhooks/*`) - For Clerk webhooks
+- **Health Check** (`/api/health`) - Backend health endpoint
+
+### **User Experience:**
+1. **First Visit** → Redirected to sign-in page
+2. **After Sign In** → Access to Power BI dashboard
+3. **User Button** → Profile management and sign out
+4. **Automatic Redirect** → Seamless authentication flow
+
+---
+
 ## Features
 
-- **Power BI Embedded Reports** - Seamlessly embed your Power BI reports
-- **AI-Powered Insights** - Ask questions about your current view and get intelligent analysis
-- **Automatic Token Generation** - No manual token copying required
-- **Context-Aware** - Automatically includes active filters and slicers in analysis
-- **Secure** - Only analyzes visible data, never accesses your full dataset or DAX formulas
-- **Real-time** - Export and analyze data from any visual on demand
+- **🔐 Clerk Authentication** - Secure user authentication and session management
+- **📊 Power BI Embedded Reports** - Seamlessly embed your Power BI reports
+- **🤖 AI-Powered Insights** - Ask questions about your current view and get intelligent analysis
+- **🔄 Automatic Token Generation** - No manual token copying required
+- **🎯 Context-Aware** - Automatically includes active filters and slicers in analysis
+- **🔒 Secure** - Only analyzes visible data, never accesses your full dataset or DAX formulas
+- **⚡ Real-time** - Export and analyze data from any visual on demand
+- **🌐 CORS Enabled** - Backend configured for cross-origin requests
 
 ## Quick Start
 
@@ -187,21 +306,35 @@ Before running the application, ensure:
 \`\`\`
 .
 ├── app/
-│   ├── page.tsx                    # Main dashboard page
-│   ├── layout.tsx                  # Root layout
+│   ├── page.tsx                    # Main dashboard page (with auth)
+│   ├── layout.tsx                  # Root layout with ClerkProvider
 │   ├── globals.css                 # Global styles
+│   ├── sign-in/
+│   │   └── [[...sign-in]]/
+│   │       └── page.tsx            # Clerk sign-in page
+│   ├── sign-up/
+│   │   └── [[...sign-up]]/
+│   │       └── page.tsx            # Clerk sign-up page
 │   └── api/
 │       ├── powerbi/
 │       │   └── config/
 │       │       └── route.ts        # Power BI config API
 │       └── analyze/
 │           └── route.ts            # AI analysis API
+├── backend/
+│   ├── main.py                     # FastAPI backend with CORS
+│   ├── requirements.txt            # Python dependencies
+│   └── test_cors.py               # CORS testing script
 ├── components/
 │   ├── powerbi-embed.tsx           # Power BI embed component
-│   └── ai-chat.tsx                 # AI chat interface
+│   ├── ai-chat.tsx                 # AI chat interface
+│   └── ui/                         # Shadcn/ui components
 ├── lib/
 │   ├── powerbi-types.ts            # TypeScript types
-│   └── powerbi-auth.ts             # Token generation logic
+│   ├── powerbi-auth.ts             # Token generation logic
+│   └── utils.ts                    # Utility functions
+├── middleware.ts                   # Clerk authentication middleware
+├── .env.local                      # Environment variables
 ├── .env.example                    # Environment template
 └── README.md
 \`\`\`

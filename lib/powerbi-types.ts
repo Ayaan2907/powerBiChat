@@ -3,6 +3,7 @@ export interface PowerBIConfig {
   reportId: string
   embedUrl: string
   accessToken: string
+  tokenExpiration?: string | Date
   workspaceId?: string
   datasetId?: string
 }
