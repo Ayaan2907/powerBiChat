@@ -163,77 +163,119 @@ export default function Page() {
   // Main dashboard with Power BI embed and AI chat
   return (
     <main className="h-screen flex flex-col bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold">Power BI Analytics</h1>
-            <p className="text-sm text-muted-foreground">
-              Welcome back, {user?.firstName || user?.emailAddresses[0]?.emailAddress || 'User'}! AI-powered insights for your data
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            {/* Token Status */}
-            {powerBIConfig && (
-              <div className="flex items-center gap-2 text-sm">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">
-                  Token expires in: {formatTimeUntilExpiry(timeUntilExpiry)}
-                </span>
+      {/* Header - AdvancelQ.ai Brand */}
+      <header className="border-b border-border/40 bg-card/50 backdrop-blur-md sticky top-0 z-50">
+        <div className="container mx-auto px-4 lg:px-6 py-3 lg:py-4">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            {/* Logo and Title */}
+            <div className="flex items-center gap-3 lg:gap-4">
+              <img 
+                src="/advancelq-logo.svg" 
+                alt="AdvanceIQ.ai" 
+                className="h-8 lg:h-10 w-auto"
+              />
+              
+              {/* Company Name */}
+              <div className="flex items-center gap-3 lg:gap-4">
+                <h1 className="text-lg lg:text-xl font-bold text-foreground tracking-tight">
+                  AdvanceIQ.ai
+                </h1>
+                
+                {/* Divider and Page Title */}
+                <div className="hidden md:flex items-center gap-3 lg:gap-4">
+                  <div className="h-8 w-px bg-border/40"></div>
+                  <div>
+                    <h2 className="text-base lg:text-lg font-semibold text-foreground">
+                      Power BI Analytics
+                    </h2>
+                    <p className="text-xs lg:text-sm text-muted-foreground">
+                      Welcome, {user?.firstName || user?.emailAddresses[0]?.emailAddress || 'User'}
+                    </p>
+                  </div>
+                </div>
               </div>
-            )}
+            </div>
             
-            {/* Manual Refresh Button */}
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={refreshToken}
-              disabled={isLoading}
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh Token
-            </Button>
-            
-            <Button variant="outline" size="sm" onClick={() => setShowSetup(!showSetup)}>
-              <Settings className="h-4 w-4 mr-2" />
-              Setup
-            </Button>
-            
-            {/* User Profile Button */}
-            <UserButton 
-              appearance={{
-                elements: {
-                  avatarBox: "w-8 h-8",
-                  userButtonPopoverCard: "shadow-lg",
-                },
-              }}
-              afterSignOutUrl="/sign-in"
-            />
+            {/* Actions */}
+            <div className="flex items-center gap-2 lg:gap-3 flex-wrap">
+              {/* Token Status - Hidden on mobile */}
+              {powerBIConfig && (
+                <div className="hidden xl:flex items-center gap-2 text-sm bg-secondary/50 px-3 py-1.5 rounded-lg">
+                  <Clock className="h-4 w-4 text-primary" />
+                  <span className="text-muted-foreground text-xs">
+                    {formatTimeUntilExpiry(timeUntilExpiry)}
+                  </span>
+                </div>
+              )}
+              
+              {/* Refresh Button */}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={refreshToken}
+                disabled={isLoading}
+                className="border-primary/30 hover:border-primary hover:bg-primary/10 transition-all"
+              >
+                <RefreshCw className={`h-4 w-4 lg:mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                <span className="hidden lg:inline">Refresh</span>
+              </Button>
+              
+              {/* Setup Button */}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setShowSetup(!showSetup)}
+                className="hidden md:flex border-border/40 hover:border-primary/30"
+              >
+                <Settings className="h-4 w-4 lg:mr-2" />
+                <span className="hidden lg:inline">Setup</span>
+              </Button>
+              
+              {/* User Profile Button */}
+              <UserButton 
+                appearance={{
+                  elements: {
+                    avatarBox: "w-8 h-8 ring-2 ring-primary/20",
+                    userButtonPopoverCard: "shadow-xl border border-border/40",
+                  },
+                }}
+                afterSignOutUrl="/sign-in"
+              />
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Main content area */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Power BI Report - 70% width */}
-        <div className="flex-[7] p-4">
-          <PowerBIEmbed
-            reportId={powerBIConfig.reportId}
-            embedUrl={powerBIConfig.embedUrl}
-            accessToken={powerBIConfig.accessToken}
-            onDataExport={(data, filters) => {
-              console.log("[v0] Power BI data exported for AI analysis:", { 
-                dataLength: data.length, 
-                hasFilters: !!filters 
-              })
-            }}
-          />
+      {/* Main content area - Responsive Layout */}
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        {/* Power BI Report - Responsive */}
+        <div className="flex-1 lg:flex-[7] p-2 md:p-4 lg:p-6 overflow-hidden">
+          <div className="h-full rounded-xl border border-border/40 bg-card/30 shadow-xl overflow-hidden animate-fade-in">
+            <PowerBIEmbed
+              reportId={powerBIConfig.reportId}
+              embedUrl={powerBIConfig.embedUrl}
+              accessToken={powerBIConfig.accessToken}
+              onDataExport={(data, filters) => {
+                console.log("[AdvancelQ.ai] Power BI data exported:", { 
+                  dataLength: data.length, 
+                  hasFilters: !!filters 
+                })
+              }}
+            />
+          </div>
         </div>
 
-        {/* AI Chat Sidebar - 30% width */}
-        <div className="flex-[3] border-l bg-muted/30 p-4">
+        {/* AI Chat Sidebar - Responsive */}
+        <div className="w-full lg:w-auto lg:flex-[3] border-t lg:border-t-0 lg:border-l border-border/40 bg-secondary/20 backdrop-blur-sm p-2 md:p-4 lg:p-6 max-h-[40vh] lg:max-h-none overflow-hidden">
           <AIChat />
         </div>
+      </div>
+      
+      {/* Footer - Mobile only */}
+      <div className="lg:hidden border-t border-border/40 bg-card/50 backdrop-blur-md px-4 py-2 text-center">
+        <p className="text-xs text-muted-foreground">
+          © 2025 AdvancelQ.ai, a Pinetail Capital LLC company
+        </p>
       </div>
     </main>
   )

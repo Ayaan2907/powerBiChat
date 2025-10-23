@@ -153,88 +153,122 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
   }
 
   return (
-    <Card className={`flex flex-col ${isCollapsed ? 'h-auto' : 'h-full'}`}>
-      <CardHeader className="border-b py-3">
+    <div className={`flex flex-col h-full rounded-xl bg-card/50 backdrop-blur-sm border border-border/40 shadow-xl overflow-hidden animate-fade-in ${isCollapsed ? 'h-auto' : ''}`}>
+      {/* Header - AdvancelQ.ai Branded */}
+      <div className="border-b border-border/40 bg-gradient-to-r from-secondary/50 to-secondary/30 px-4 py-3 lg:py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            <CardTitle>AI Insights</CardTitle>
+          <div className="flex items-center gap-2 lg:gap-3">
+            <div className="relative">
+              <Sparkles className="h-5 w-5 lg:h-6 lg:w-6 text-primary animate-pulse" />
+              <div className="absolute inset-0 h-5 w-5 lg:h-6 lg:w-6 text-primary blur-sm opacity-50">
+                <Sparkles className="h-full w-full" />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-base lg:text-lg font-semibold text-foreground">AI Insights</h3>
+              {!isCollapsed && (
+                <p className="text-xs text-muted-foreground hidden sm:block">
+                  Powered by AdvancelQ.ai
+                </p>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-1">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-8 w-8" 
-              onClick={() => setIsCollapsed(!isCollapsed)}
-            >
-              {isCollapsed ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
-            </Button>
-          </div>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8 lg:h-9 lg:w-9 hover:bg-primary/10 hover:text-primary transition-colors" 
+            onClick={() => setIsCollapsed(!isCollapsed)}
+          >
+            {isCollapsed ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+          </Button>
         </div>
-        {!isCollapsed && (
-          <CardDescription>Ask questions about your current view</CardDescription>
-        )}
-      </CardHeader>
+      </div>
 
       {!isCollapsed && (
-        <CardContent className="flex-1 flex flex-col p-0">
-          <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+        <>
+          {/* Messages Area - Responsive Scrolling */}
+          <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-3 lg:space-y-4 min-h-0" ref={scrollRef}>
             {messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center space-y-3 py-8">
-                <Sparkles className="h-12 w-12 text-muted-foreground/50" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">Start a conversation</p>
-                  <p className="text-xs text-muted-foreground">
-                    Ask about trends, patterns, or insights in your current visual
+              <div className="flex flex-col items-center justify-center h-full text-center space-y-4 lg:space-y-6 p-4 lg:p-8 animate-slide-in">
+                <div className="relative">
+                  <Sparkles className="h-12 w-12 lg:h-16 lg:w-16 text-primary/30" />
+                  <div className="absolute inset-0 h-12 w-12 lg:h-16 lg:w-16 text-primary/20 blur-md">
+                    <Sparkles className="h-full w-full" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm lg:text-base font-semibold text-foreground">
+                    Start a conversation
+                  </p>
+                  <p className="text-xs lg:text-sm text-muted-foreground max-w-xs">
+                    Ask about trends, patterns, or insights in your current Power BI visual
                   </p>
                 </div>
-                <div className="text-xs text-muted-foreground space-y-1 pt-2">
-                  <p className="font-medium">Try asking:</p>
-                  <p>"What are the key trends?"</p>
-                  <p>"Any anomalies in this data?"</p>
-                  <p>"Summarize the insights"</p>
+                <div className="bg-secondary/30 rounded-lg p-3 lg:p-4 space-y-2 text-xs lg:text-sm text-muted-foreground max-w-xs">
+                  <p className="font-semibold text-foreground">Try asking:</p>
+                  <div className="space-y-1 text-left">
+                    <p className="flex items-center gap-2">
+                      <span className="w-1 h-1 rounded-full bg-primary"></span>
+                      "What are the key trends?"
+                    </p>
+                    <p className="flex items-center gap-2">
+                      <span className="w-1 h-1 rounded-full bg-primary"></span>
+                      "Any anomalies in this data?"
+                    </p>
+                    <p className="flex items-center gap-2">
+                      <span className="w-1 h-1 rounded-full bg-primary"></span>
+                      "Summarize the insights"
+                    </p>
+                  </div>
                 </div>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3 lg:space-y-4">
                 {messages.map((message, index) => (
-                  <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div 
+                    key={index} 
+                    className={`flex ${message.role === "user" ? "justify-end" : "justify-start"} animate-slide-in`}
+                  >
                     <div
-                      className={`max-w-[85%] rounded-lg px-4 py-2 ${
-                        message.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"
+                      className={`max-w-[90%] lg:max-w-[85%] rounded-2xl px-3 py-2 lg:px-4 lg:py-3 shadow-md transition-all hover:shadow-lg ${
+                        message.role === "user" 
+                          ? "bg-primary text-primary-foreground glow-teal-hover" 
+                          : "bg-secondary/70 text-foreground backdrop-blur-sm border border-border/30"
                       }`}
                     >
                       {message.role === "user" ? (
-                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                        <p className="text-xs lg:text-sm whitespace-pre-wrap leading-relaxed">
+                          {message.content}
+                        </p>
                       ) : (
-                        <div className="markdown-content text-sm">
+                        <div className="markdown-content text-xs lg:text-sm">
                           <ReactMarkdown
                             remarkPlugins={[remarkGfm]}
                             rehypePlugins={[rehypeRaw, rehypeSanitize]}
                             components={{
-                              h1: ({ node, ...props }) => <h1 className="text-lg font-bold my-2" {...props} />,
-                              h2: ({ node, ...props }) => <h2 className="text-md font-bold my-2" {...props} />,
-                              h3: ({ node, ...props }) => <h3 className="text-sm font-bold my-1" {...props} />,
-                              p: ({ node, ...props }) => <p className="my-1" {...props} />,
-                              ul: ({ node, ...props }) => <ul className="list-disc pl-4 my-1" {...props} />,
-                              ol: ({ node, ...props }) => <ol className="list-decimal pl-4 my-1" {...props} />,
-                              li: ({ node, ...props }) => <li className="my-0.5" {...props} />,
-                              a: ({ node, ...props }) => <a className="text-primary underline" {...props} />,
+                              h1: ({ node, ...props }) => <h1 className="text-base lg:text-lg font-bold my-2" {...props} />,
+                              h2: ({ node, ...props }) => <h2 className="text-sm lg:text-base font-bold my-2" {...props} />,
+                              h3: ({ node, ...props }) => <h3 className="text-xs lg:text-sm font-bold my-1" {...props} />,
+                              p: ({ node, ...props }) => <p className="my-1 leading-relaxed" {...props} />,
+                              ul: ({ node, ...props }) => <ul className="list-disc pl-4 my-2 space-y-1" {...props} />,
+                              ol: ({ node, ...props }) => <ol className="list-decimal pl-4 my-2 space-y-1" {...props} />,
+                              li: ({ node, ...props }) => <li className="my-1" {...props} />,
+                              a: ({ node, ...props }) => <a className="text-primary underline hover:text-primary/80" {...props} />,
                               code: ({ node, inline, ...props }) => 
                                 inline ? 
-                                  <code className="bg-muted-foreground/20 px-1 py-0.5 rounded text-xs" {...props} /> : 
-                                  <code className="block bg-muted-foreground/20 p-2 rounded-md text-xs my-2 overflow-x-auto" {...props} />,
-                              blockquote: ({ node, ...props }) => <blockquote className="border-l-2 border-muted-foreground pl-2 italic my-2" {...props} />,
-                              table: ({ node, ...props }) => <table className="border-collapse w-full my-2" {...props} />,
-                              th: ({ node, ...props }) => <th className="border border-muted-foreground/30 px-2 py-1 bg-muted-foreground/10 font-medium" {...props} />,
-                              td: ({ node, ...props }) => <td className="border border-muted-foreground/30 px-2 py-1" {...props} />,
+                                  <code className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-xs font-mono" {...props} /> : 
+                                  <code className="block bg-secondary/50 p-3 rounded-lg text-xs font-mono my-2 overflow-x-auto border border-border/30" {...props} />,
+                              blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-primary/50 pl-3 italic my-2 text-muted-foreground" {...props} />,
+                              table: ({ node, ...props }) => <table className="border-collapse w-full my-3 text-xs" {...props} />,
+                              th: ({ node, ...props }) => <th className="border border-border/40 px-2 py-1.5 bg-secondary/50 font-semibold" {...props} />,
+                              td: ({ node, ...props }) => <td className="border border-border/40 px-2 py-1.5" {...props} />,
                             }}
                           >
                             {message.content}
                           </ReactMarkdown>
                         </div>
                       )}
-                      <p className="text-xs opacity-70 mt-1">
+                      <p className="text-[10px] lg:text-xs opacity-60 mt-1.5 font-mono">
                         {message.timestamp.toLocaleTimeString([], {
                           hour: "2-digit",
                           minute: "2-digit",
@@ -245,26 +279,37 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
                 ))}
 
                 {isLoading && (
-                  <div className="flex justify-start">
-                    <div className="bg-muted rounded-lg px-4 py-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                  <div className="flex justify-start animate-slide-in">
+                    <div className="bg-secondary/70 backdrop-blur-sm border border-border/30 rounded-2xl px-4 py-3 shadow-md flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      <span className="text-xs text-muted-foreground">Analyzing your data...</span>
                     </div>
                   </div>
                 )}
               </div>
             )}
-          </ScrollArea>
+          </div>
 
-          <div className="border-t p-4 space-y-2">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyPress}
-              placeholder="Ask about your dashboard..."
-              className="min-h-[80px] resize-none"
-              disabled={isLoading}
-            />
-            <Button onClick={handleAskAI} disabled={!input.trim() || isLoading} className="w-full">
+          {/* Input Area - Responsive & Modern */}
+          <div className="border-t border-border/40 bg-secondary/20 backdrop-blur-sm p-3 lg:p-4 space-y-2 lg:space-y-3">
+            <div className="relative">
+              <Textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyPress}
+                placeholder="Ask about your dashboard insights..."
+                className="min-h-[60px] lg:min-h-[80px] resize-none rounded-xl border-border/40 bg-background/50 backdrop-blur-sm focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-xs lg:text-sm pr-12"
+                disabled={isLoading}
+              />
+              <div className="absolute bottom-2 right-2 text-[10px] text-muted-foreground">
+                {input.length}/500
+              </div>
+            </div>
+            <Button 
+              onClick={handleAskAI} 
+              disabled={!input.trim() || isLoading} 
+              className="w-full rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all glow-teal-hover h-10 lg:h-11 text-sm lg:text-base font-semibold"
+            >
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -277,9 +322,12 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
                 </>
               )}
             </Button>
+            <p className="text-[10px] text-muted-foreground text-center">
+              Press Enter to send • Shift+Enter for new line
+            </p>
           </div>
-        </CardContent>
+        </>
       )}
-    </Card>
+    </div>
   )
 }

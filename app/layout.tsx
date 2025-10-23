@@ -12,9 +12,22 @@ const _geistMono = V0_Font_Geist_Mono({ subsets: ['latin'], weight: ["100","200"
 const _sourceSerif_4 = V0_Font_Source_Serif_4({ subsets: ['latin'], weight: ["200","300","400","500","600","700","800","900"] })
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
-  generator: 'v0.app',
+  title: 'AdvancelQ.ai - Power BI Analytics Dashboard',
+  description: 'AI-powered Power BI analytics platform by AdvancelQ.ai, a Pinetail Capital LLC company',
+  generator: 'AdvancelQ.ai',
+  keywords: ['Power BI', 'Analytics', 'AI', 'Business Intelligence', 'AdvancelQ.ai'],
+  authors: [{ name: 'AdvancelQ.ai' }],
+  icons: {
+    icon: '/advancelq-icon.svg',
+    shortcut: '/advancelq-icon.svg',
+    apple: '/advancelq-icon.svg',
+  },
+  openGraph: {
+    title: 'AdvancelQ.ai - Power BI Analytics Dashboard',
+    description: 'AI-powered Power BI analytics platform',
+    type: 'website',
+    images: ['/advancelq-icon.svg'],
+  },
 }
 
 export default function RootLayout({
@@ -24,7 +37,7 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang="en">
+      <html lang="en" className="dark">
         <body className={`font-sans antialiased`}>
           {children}
           <Analytics />
