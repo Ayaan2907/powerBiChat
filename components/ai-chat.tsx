@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -12,6 +12,7 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import rehypeRaw from "rehype-raw"
 import rehypeSanitize from "rehype-sanitize"
+import domtoimage from "dom-to-image-more"
 
 interface Message {
   role: "user" | "assistant"
@@ -28,7 +29,9 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const [capturedScreenshot, setCapturedScreenshot] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -36,6 +39,130 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [messages])
+
+  // Capture Power BI screenshot silently using dom-to-image-more (supports modern CSS)
+  const captureScreenshot = useCallback(async () => {
+    try {
+      console.log("[AIChat] 📸 Starting screenshot capture with dom-to-image-more...")
+      
+      // Multiple fallback strategies to find Power BI container
+      let targetElement: HTMLElement | null = null
+      
+      // Strategy 1: Find by Power BI iframe
+      const iframe = document.querySelector('iframe[title*="Power BI"], iframe[src*="powerbi"]') as HTMLElement
+      if (iframe) {
+        // Capture the iframe's parent container (which includes the card wrapper)
+        targetElement = iframe.closest('.h-full') as HTMLElement || iframe.parentElement as HTMLElement
+        console.log("[AIChat] ✓ Found Power BI via iframe")
+      }
+      
+      // Strategy 2: Find the main report container
+      if (!targetElement) {
+        targetElement = document.querySelector('main > div > div:first-child > div') as HTMLElement
+        if (targetElement) console.log("[AIChat] ✓ Found via main container")
+      }
+      
+      // Strategy 3: Find by class patterns
+      if (!targetElement) {
+        targetElement = document.querySelector('[class*="flex-1"][class*="p-"]') as HTMLElement
+        if (targetElement) console.log("[AIChat] ✓ Found via flex container")
+      }
+      
+      // Strategy 4: Capture entire main area (most reliable)
+      if (!targetElement) {
+        const main = document.querySelector('main') as HTMLElement
+        if (main) {
+          const firstChild = main.querySelector('div > div:first-child') as HTMLElement
+          if (firstChild) {
+            targetElement = firstChild
+            console.log("[AIChat] ✓ Found via main first child")
+          }
+        }
+      }
+      
+      if (!targetElement) {
+        console.warn("[AIChat] ⚠️ No Power BI container found for screenshot")
+        console.log("[AIChat] DOM Debug:", {
+          iframes: document.querySelectorAll('iframe').length,
+          main: !!document.querySelector('main'),
+          cards: document.querySelectorAll('[class*="card"]').length
+        })
+        return null
+      }
+      
+      console.log("[AIChat] 📸 Capturing from element:", {
+        tag: targetElement.tagName,
+        classes: targetElement.className.substring(0, 50),
+        width: targetElement.offsetWidth,
+        height: targetElement.offsetHeight
+      })
+      
+      // Use dom-to-image-more which natively supports modern CSS (oklch, etc.)
+      const dataUrl = await domtoimage.toJpeg(targetElement, {
+        quality: 0.7,
+        bgcolor: '#1a1a1a',
+        width: targetElement.offsetWidth,
+        height: targetElement.offsetHeight,
+        style: {
+          transform: 'scale(1)',
+          transformOrigin: 'top left'
+        },
+        filter: (node: HTMLElement) => {
+          // Exclude AI chat sidebar and other unwanted elements
+          if (node.classList) {
+            return !node.classList.contains('ai-chat') && 
+                   !node.closest?.('[class*="ai-chat"]')
+          }
+          return true
+        }
+      })
+      
+      console.log("[AIChat] ✅ Screenshot captured successfully!", {
+        size: `${Math.round(dataUrl.length / 1024)}KB`,
+        format: 'JPEG'
+      })
+      
+      return dataUrl
+      
+    } catch (error) {
+      console.error("[AIChat] ❌ Screenshot capture failed:", error)
+      console.error("[AIChat] Error details:", {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      })
+      return null
+    }
+  }, [])
+
+  // Debounced screenshot capture triggered by typing
+  const handleInputChange = useCallback((value: string) => {
+    setInput(value)
+    
+    // Clear existing timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+    }
+    
+    // Only capture if user is actually typing (not empty)
+    if (value.trim().length > 0) {
+      // Set new debounce timer (500ms after user stops typing)
+      debounceTimerRef.current = setTimeout(async () => {
+        const screenshot = await captureScreenshot()
+        if (screenshot) {
+          setCapturedScreenshot(screenshot)
+        }
+      }, 500)
+    }
+  }, [captureScreenshot])
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+      }
+    }
+  }, [])
 
   const handleAskAI = async () => {
     if (!input.trim() || isLoading) return
@@ -49,6 +176,20 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
     setMessages((prev) => [...prev, userMessage])
     setInput("")
     setIsLoading(true)
+
+    // If no screenshot captured yet (user sent too quickly), try to capture now
+    let screenshotToUse = capturedScreenshot
+    if (!screenshotToUse) {
+      console.log("[AIChat] No screenshot in state, attempting immediate capture...")
+      screenshotToUse = await captureScreenshot()
+      if (screenshotToUse) {
+        console.log("[AIChat] ✅ Immediate screenshot captured successfully")
+      } else {
+        console.warn("[AIChat] ⚠️ Immediate screenshot capture failed")
+      }
+    } else {
+      console.log("[AIChat] Using pre-captured screenshot from state")
+    }
 
     try {
       // Export current Power BI visual data
@@ -80,26 +221,51 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
 
       console.log(`[v0] Sending request to AI backend${contextMessage}...`)
 
+      // Prepare request payload with screenshot
+      const requestPayload: any = {
+        question: input,
+        visibleData: dataToSend,
+        filters: visualData.filters,
+        context: {
+          isFallback: visualData.fallback || false,
+          isError: visualData.error || false,
+          visualInfo: visualData.visual ? {
+            title: visualData.visual,
+            type: visualData.visualType
+          } : null
+        }
+      }
+
+      // Include screenshot if available
+      if (screenshotToUse) {
+        requestPayload.screenshot = screenshotToUse
+        console.log("[AIChat] ✅ Including screenshot in analysis request", {
+          screenshotSize: `${Math.round(screenshotToUse.length / 1024)}KB`,
+          hasData: !!screenshotToUse
+        })
+      } else {
+        console.warn("[AIChat] ⚠️ No screenshot available - sending text-only request")
+      }
+
+      console.log("[AIChat] Sending request to backend with payload:", {
+        hasQuestion: !!requestPayload.question,
+        hasVisibleData: !!requestPayload.visibleData,
+        hasScreenshot: !!requestPayload.screenshot,
+        screenshotSize: requestPayload.screenshot ? `${Math.round(requestPayload.screenshot.length / 1024)}KB` : 'N/A'
+      })
+
       // Send to backend API
       const response = await fetch(apiEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          question: input,
-          visibleData: dataToSend,
-          filters: visualData.filters,
-          context: {
-            isFallback: visualData.fallback || false,
-            isError: visualData.error || false,
-            visualInfo: visualData.visual ? {
-              title: visualData.visual,
-              type: visualData.visualType
-            } : null
-          }
-        }),
+        body: JSON.stringify(requestPayload),
       })
+      
+      // Clear the screenshot after sending
+      setCapturedScreenshot(null)
+      console.log("[AIChat] Screenshot cleared from state")
 
       if (!response.ok) {
         throw new Error(`API error: ${response.statusText}`)
@@ -254,10 +420,12 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
                               ol: ({ node, ...props }) => <ol className="list-decimal pl-4 my-2 space-y-1" {...props} />,
                               li: ({ node, ...props }) => <li className="my-1" {...props} />,
                               a: ({ node, ...props }) => <a className="text-primary underline hover:text-primary/80" {...props} />,
-                              code: ({ node, inline, ...props }) => 
-                                inline ? 
+                              code: ({ node, className, ...props }) => {
+                                const isInline = !className?.includes('language-')
+                                return isInline ? 
                                   <code className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-xs font-mono" {...props} /> : 
-                                  <code className="block bg-secondary/50 p-3 rounded-lg text-xs font-mono my-2 overflow-x-auto border border-border/30" {...props} />,
+                                  <code className="block bg-secondary/50 p-3 rounded-lg text-xs font-mono my-2 overflow-x-auto border border-border/30" {...props} />
+                              },
                               blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-primary/50 pl-3 italic my-2 text-muted-foreground" {...props} />,
                               table: ({ node, ...props }) => <table className="border-collapse w-full my-3 text-xs" {...props} />,
                               th: ({ node, ...props }) => <th className="border border-border/40 px-2 py-1.5 bg-secondary/50 font-semibold" {...props} />,
@@ -295,7 +463,7 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
             <div className="relative">
               <Textarea
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => handleInputChange(e.target.value)}
                 onKeyDown={handleKeyPress}
                 placeholder="Ask about your dashboard insights..."
                 className="min-h-[60px] lg:min-h-[80px] resize-none rounded-xl border-border/40 bg-background/50 backdrop-blur-sm focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-xs lg:text-sm pr-12"

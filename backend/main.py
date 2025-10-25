@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-import openai
+from openai import OpenAI
 import os
 import json
 from dotenv import load_dotenv
@@ -11,8 +11,8 @@ from pathlib import Path
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
-# Initialize OpenAI
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# Initialize OpenAI client (new v1.x API)
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 app = FastAPI(title="Power BI AI Chatbot API")
 
@@ -40,22 +40,24 @@ async def root():
 @app.post("/analyze")
 async def analyze(request: Request):
     """
-    Analyzes Power BI visual data using OpenAI.
-    Expects: { question: string, visibleData: string, filters?: string }
+    Analyzes Power BI visual data using OpenAI GPT-4 Vision.
+    Expects: { question: string, visibleData: string, filters?: string, screenshot?: string }
     """
     try:
         data = await request.json()
         question = data.get("question", "")
         visible_data = data.get("visibleData", "")
         filters = data.get("filters", "")
+        screenshot = data.get("screenshot", None)  # Base64 encoded image
         
-        if not visible_data:
+        if not visible_data and not screenshot:
             return {"error": "No visual data provided", "answer": "Please select a visual to analyze."}
         
         # Build context-aware prompt
         filter_context = f"\nActive filters: {filters}" if filters else ""
         
-        prompt = f"""Global Prompt Layer (PortIQ – MCA / SMB AltLending)
+        # Build the text prompt
+        text_prompt = f"""Global Prompt Layer (PortIQ – MCA / SMB AltLending)
 
 Role & Objective
 You are an AI-powered analytics assistant embedded in PortIQ.
@@ -133,21 +135,58 @@ ACTIVE FILTERS:
 
 INSTRUCTIONS:
 - Focus analysis on the visible data and any active filters above.
+- If a screenshot of the dashboard is provided, analyze the visual elements, trends, and patterns you can see.
 - Use bullet points for clarity.
 - Keep your answer under 250 words.
 - If you do not have enough data to answer, state that directly and do not fabricate information.
 - Respond in the style and with the vocabulary outlined above.
 """
 
-        # Call OpenAI API
-        response = openai.ChatCompletion.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
+        # Prepare messages for OpenAI API
+        messages = []
+        
+        # If screenshot is provided, use GPT-4 Vision
+        if screenshot:
+            # Remove data URL prefix if present
+            if screenshot.startswith('data:image'):
+                screenshot = screenshot.split(',')[1]
+            
+            messages.append({
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": text_prompt
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{screenshot}",
+                            "detail": "high"
+                        }
+                    }
+                ]
+            })
+            
+            print("[Backend] Using GPT-4o with vision - screenshot included")
+        else:
+            # Text-only mode
+            messages.append({
+                "role": "user",
+                "content": text_prompt
+            })
+            
+            print("[Backend] Using GPT-4o in text-only mode")
+
+        # Call OpenAI API with new client format
+        response = client.chat.completions.create(
+            model="gpt-4o",  # GPT-4o supports vision
+            messages=messages,
             temperature=0.3,
-            # max_tokens=500
+            max_tokens=500
         )
         
-        answer = response.choices[0].message["content"]
+        answer = response.choices[0].message.content
         return {"answer": answer}
         
     except Exception as e:
