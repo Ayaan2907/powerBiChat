@@ -167,7 +167,6 @@ export default function Page() {
       <header className="border-b border-border/40 bg-card/50 backdrop-blur-md sticky top-0 z-50">
         <div className="container mx-auto px-4 lg:px-6 py-3 lg:py-4">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            {/* Logo and Title */}
             <div className="flex items-center gap-3 lg:gap-4">
               <img 
                 src="/advancelq-logo.svg" 
@@ -175,20 +174,19 @@ export default function Page() {
                 className="h-8 lg:h-10 w-auto"
               />
               
-              {/* Company Name */}
+
               <div className="flex items-center gap-3 lg:gap-4">
                 <h1 className="text-lg lg:text-xl font-bold text-foreground tracking-tight">
                   AdvanceIQ.ai
                 </h1>
                 
-                {/* Divider and Page Title */}
                 <div className="hidden md:flex items-center gap-3 lg:gap-4">
                   <div className="h-8 w-px bg-border/40"></div>
                   <div>
-                    <h2 className="text-base lg:text-lg font-semibold text-foreground">
+                    {/* <h2 className="text-base lg:text-lg font-semibold text-foreground">
                       Power BI Analytics
-                    </h2>
-                    <p className="text-xs lg:text-sm text-muted-foreground">
+                    </h2> */}
+                    <p className="text-xs lg:text-sm text-foreground">
                       Welcome, {user?.firstName || user?.emailAddresses[0]?.emailAddress || 'User'}
                     </p>
                   </div>
@@ -196,9 +194,9 @@ export default function Page() {
               </div>
             </div>
             
-            {/* Actions */}
+
             <div className="flex items-center gap-2 lg:gap-3 flex-wrap">
-              {/* Token Status - Hidden on mobile */}
+
               {powerBIConfig && (
                 <div className="hidden xl:flex items-center gap-2 text-sm bg-secondary/50 px-3 py-1.5 rounded-lg">
                   <Clock className="h-4 w-4 text-primary" />
@@ -209,7 +207,7 @@ export default function Page() {
               )}
               
               {/* Refresh Button */}
-              <Button 
+              {/* <Button 
                 variant="outline" 
                 size="sm" 
                 onClick={refreshToken}
@@ -218,7 +216,7 @@ export default function Page() {
               >
                 <RefreshCw className={`h-4 w-4 lg:mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                 <span className="hidden lg:inline">Refresh</span>
-              </Button>
+              </Button> */}
               
               {/* Setup Button */}
               <Button 
@@ -249,8 +247,9 @@ export default function Page() {
       {/* Main content area - Responsive Layout */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Power BI Report - Responsive */}
-        <div className="flex-1 lg:flex-[7] p-2 md:p-4 lg:p-6 overflow-hidden">
-          <div className="h-full rounded-xl border border-border/40 bg-card/30 shadow-xl overflow-hidden animate-fade-in">
+        {/* PowerBI Embed - Full Width */}
+        <div className="flex-1 overflow-hidden">
+          <div className="h-full border-border/40 bg-card/30 shadow-xl overflow-hidden animate-fade-in">
             <PowerBIEmbed
               reportId={powerBIConfig.reportId}
               embedUrl={powerBIConfig.embedUrl}
@@ -264,19 +263,10 @@ export default function Page() {
             />
           </div>
         </div>
+      </div>
 
-        {/* AI Chat Sidebar - Responsive */}
-        <div className="w-full lg:w-auto lg:flex-[3] border-t lg:border-t-0 lg:border-l border-border/40 bg-secondary/20 backdrop-blur-sm p-2 md:p-4 lg:p-6 max-h-[40vh] lg:max-h-none overflow-hidden">
-          <AIChat />
-        </div>
-      </div>
-      
-      {/* Footer - Mobile only */}
-      <div className="lg:hidden border-t border-border/40 bg-card/50 backdrop-blur-md px-4 py-2 text-center">
-        <p className="text-xs text-muted-foreground">
-          © 2025 AdvancelQ.ai, a Pinetail Capital LLC company
-        </p>
-      </div>
+      {/* AI Chat Popup - Fixed Position */}
+      <AIChat />
     </main>
   )
 }

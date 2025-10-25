@@ -332,7 +332,7 @@ export function PowerBIEmbed({ reportId, embedUrl, accessToken, onDataExport }: 
   }, [report, onDataExport])
 
   return (
-    <Card className="h-full overflow-hidden">
+    <Card className="h-full overflow-hidden bg-white">
       {error && (
         <Alert variant="destructive" className="m-4">
           <AlertCircle className="h-4 w-4" />
