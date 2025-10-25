@@ -3,6 +3,13 @@ from fastapi.middleware.cors import CORSMiddleware
 import openai
 import os
 import json
+from dotenv import load_dotenv
+from pathlib import Path
+
+# Load environment variables from .env file
+# Look for .env in parent directory (root of project)
+env_path = Path(__file__).parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
 # Initialize OpenAI
 openai.api_key = os.getenv("OPENAI_API_KEY")
