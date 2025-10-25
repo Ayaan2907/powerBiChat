@@ -28,7 +28,126 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
+  const [isCapturingPDF, setIsCapturingPDF] = useState(false)
+  const [streamingContent, setStreamingContent] = useState("")
+  const [isStreaming, setIsStreaming] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Function to capture viewport as PDF using native browser print
+  const captureViewportAsPDF = async (): Promise<Blob | null> => {
+    try {
+      setIsCapturingPDF(true)
+      
+      // Create a new window for printing
+      const printWindow = window.open('', '_blank')
+      if (!printWindow) {
+        throw new Error('Failed to open print window')
+      }
+
+      // Clone the current document content
+      const documentClone = document.documentElement.cloneNode(true) as HTMLElement
+      
+      // Remove the chat overlay from the clone to avoid capturing it
+      const chatOverlay = documentClone.querySelector('[class*="fixed"][class*="inset-0"]')
+      if (chatOverlay) {
+        chatOverlay.remove()
+      }
+
+      // Set up the print window with the cloned content
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Power BI Dashboard Capture</title>
+            <style>
+              @media print {
+                * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; }
+                body { margin: 0; padding: 0; }
+                @page { margin: 0; size: A4; }
+              }
+            </style>
+          </head>
+          <body>
+            ${documentClone.innerHTML}
+          </body>
+        </html>
+      `)
+      printWindow.document.close()
+
+      // Wait for content to load
+      await new Promise(resolve => {
+        printWindow.onload = resolve
+        setTimeout(resolve, 1000) // Fallback timeout
+      })
+
+      // Use the browser's print functionality to generate PDF
+      return new Promise((resolve) => {
+        // For modern browsers that support the Print API
+        if ('showSaveFilePicker' in window) {
+          printWindow.print()
+          printWindow.close()
+          resolve(null) // Return null as we can't capture the actual PDF blob with native print
+        } else {
+          // Fallback: trigger print dialog
+          printWindow.print()
+          printWindow.close()
+          resolve(null)
+        }
+      })
+    } catch (error) {
+      console.error('[PDF Capture] Error capturing viewport:', error)
+      return null
+    } finally {
+      setIsCapturingPDF(false)
+    }
+  }
+
+  // Alternative approach: Use canvas-based PDF generation as fallback
+  const captureViewportAsBase64 = async (): Promise<string | null> => {
+    try {
+      // Create a canvas element
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return null
+
+      // Set canvas size to viewport size
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+
+      // Create an image from the current viewport using html2canvas alternative
+      // This is a simplified approach - in production you might want to use a library
+      const svgData = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="${window.innerWidth}" height="${window.innerHeight}">
+          <foreignObject width="100%" height="100%">
+            <div xmlns="http://www.w3.org/1999/xhtml">
+              ${document.body.innerHTML}
+            </div>
+          </foreignObject>
+        </svg>
+      `
+      
+      const img = new Image()
+      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' })
+      const url = URL.createObjectURL(svgBlob)
+      
+      return new Promise((resolve) => {
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0)
+          const base64 = canvas.toDataURL('image/png', 0.8)
+          URL.revokeObjectURL(url)
+          resolve(base64)
+        }
+        img.onerror = () => {
+          URL.revokeObjectURL(url)
+          resolve(null)
+        }
+        img.src = url
+      })
+    } catch (error) {
+      console.error('[Screenshot] Error capturing viewport:', error)
+      return null
+    }
+  }
 
   // Auto-scroll to bottom when new messages arrive with smooth performance
   useEffect(() => {
@@ -45,6 +164,21 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
     }
   }, [messages])
 
+  const handleCopilotActivation = async () => {
+    if (isExpanded || isCapturingPDF) return
+    
+    try {
+      // Capture viewport before opening chat
+      console.log('[Copilot] Capturing viewport...')
+      await captureViewportAsBase64() // This will be used for context
+      setIsExpanded(true)
+    } catch (error) {
+      console.error('[Copilot] Error during activation:', error)
+      // Still open chat even if capture fails
+      setIsExpanded(true)
+    }
+  }
+
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -53,18 +187,18 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
         setIsExpanded(false)
       }
       // Ctrl+K to open chat
-      if (e.ctrlKey && e.key === 'k' && !isExpanded) {
+      if (e.ctrlKey && e.key === 'k' && !isExpanded && !isCapturingPDF) {
         e.preventDefault()
-        setIsExpanded(true)
+        handleCopilotActivation()
       }
     }
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isExpanded])
+  }, [isExpanded, isCapturingPDF])
 
   const handleAskAI = async () => {
-    if (!input.trim() || isLoading) return
+    if (!input.trim() || isLoading || isStreaming) return
 
     const userMessage: Message = {
       role: "user",
@@ -73,75 +207,150 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
     }
 
     setMessages((prev) => [...prev, userMessage])
+    const currentInput = input
     setInput("")
     setIsLoading(true)
+    setStreamingContent("")
+    setIsStreaming(false)
 
     try {
+      // Capture current viewport for visual context
+      console.log("[v0] Capturing viewport for visual context...")
+      const viewportImage = await captureViewportAsBase64()
+      
       // Export current Power BI visual data
       // @ts-ignore - function attached by PowerBIEmbed component
       const exportData = window.exportPowerBIData
 
-      if (!exportData) {
-        throw new Error("Power BI data export not available. Please ensure the report is loaded.")
-      }
-
-      console.log("[v0] Exporting Power BI data...")
-      const visualData = await exportData()
-
-      if (!visualData) {
-        throw new Error("No visual data available. Please select a visual in the report.")
-      }
-
-      // Handle different export scenarios
-      let dataToSend = visualData.data
+      let visualData = null
+      let dataToSend = ""
       let contextMessage = ""
 
-      if (visualData.fallback) {
-        contextMessage = " (Note: Using fallback data due to visual export limitations)"
-      } else if (visualData.error) {
-        contextMessage = " (Note: Export error occurred, using error information)"
-      } else if (visualData.visual) {
-        contextMessage = ` (Data from: ${visualData.visual} - ${visualData.visualType})`
+      // Try to get Power BI data, but don't fail if unavailable
+      try {
+        if (exportData) {
+          console.log("[v0] Exporting Power BI data...")
+          visualData = await exportData()
+          
+          if (visualData) {
+            dataToSend = visualData.data
+            
+            if (visualData.fallback) {
+              contextMessage = " (Note: Using fallback data due to visual export limitations)"
+            } else if (visualData.error) {
+              contextMessage = " (Note: Export error occurred, using error information)"
+            } else if (visualData.visual) {
+              contextMessage = ` (Data from: ${visualData.visual} - ${visualData.visualType})`
+            }
+          }
+        }
+      } catch (powerBIError) {
+        console.warn("[v0] Power BI data export failed, using visual context only:", powerBIError)
+        contextMessage = " (Note: Using visual context only - Power BI data unavailable)"
       }
 
-      console.log(`[v0] Sending request to AI backend${contextMessage}...`)
+      console.log(`[v0] Sending streaming request to AI backend${contextMessage}...`)
 
-      // Send to backend API
+      // Prepare request payload with multimodal support
+      const requestPayload = {
+        question: currentInput,
+        visibleData: dataToSend,
+        filters: visualData?.filters || "",
+        viewportImage: viewportImage, // Base64 encoded image
+        context: {
+          isFallback: visualData?.fallback || false,
+          isError: visualData?.error || false,
+          hasViewportImage: !!viewportImage,
+          visualInfo: visualData?.visual ? {
+            title: visualData.visual,
+            type: visualData.visualType
+          } : null
+        }
+      }
+
+      // Use fetch with streaming response
       const response = await fetch(apiEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          question: input,
-          visibleData: dataToSend,
-          filters: visualData.filters,
-          context: {
-            isFallback: visualData.fallback || false,
-            isError: visualData.error || false,
-            visualInfo: visualData.visual ? {
-              title: visualData.visual,
-              type: visualData.visualType
-            } : null
-          }
-        }),
+        body: JSON.stringify(requestPayload),
       })
 
       if (!response.ok) {
         throw new Error(`API error: ${response.statusText}`)
       }
 
-      const result = await response.json()
-
-      console.log("[v0] Received AI response")
-
-      const assistantMessage: Message = {
-        role: "assistant",
-        content: result.answer || result.error || "No response received",
-        timestamp: new Date(),
+      if (!response.body) {
+        throw new Error("No response body for streaming")
       }
 
-      setMessages((prev) => [...prev, assistantMessage])
+      setIsLoading(false)
+      setIsStreaming(true)
+      let accumulatedContent = ""
+
+      // Read the streaming response
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          
+          if (done) break
+
+          // Decode the chunk
+          const chunk = decoder.decode(value, { stream: true })
+          
+          // Parse Server-Sent Events format
+          const lines = chunk.split('\n')
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const jsonStr = line.slice(6) // Remove 'data: ' prefix
+                if (jsonStr.trim()) {
+                  const data = JSON.parse(jsonStr)
+                  
+                  if (data.type === 'chunk' && data.content) {
+                    accumulatedContent += data.content
+                    setStreamingContent(accumulatedContent)
+                  } else if (data.type === 'fallback' && data.content) {
+                    accumulatedContent += data.content
+                    setStreamingContent(accumulatedContent)
+                  } else if (data.type === 'done') {
+                    // Streaming complete
+                    const assistantMessage: Message = {
+                      role: "assistant",
+                      content: accumulatedContent || "No response received",
+                      timestamp: new Date(),
+                    }
+                    setMessages((prev) => [...prev, assistantMessage])
+                    setStreamingContent("")
+                    setIsStreaming(false)
+                    return
+                  } else if (data.type === 'error') {
+                    // Handle error
+                    const errorMessage: Message = {
+                      role: "assistant",
+                      content: data.content || "An error occurred during streaming",
+                      timestamp: new Date(),
+                    }
+                    setMessages((prev) => [...prev, errorMessage])
+                    setStreamingContent("")
+                    setIsStreaming(false)
+                    return
+                  }
+                }
+              } catch (parseError) {
+                console.error("[v0] Error parsing SSE data:", parseError)
+              }
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock()
+      }
+
     } catch (error) {
       console.error("[v0] Chat error:", error)
 
@@ -166,8 +375,9 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
       }
 
       setMessages((prev) => [...prev, errorMessage])
-    } finally {
       setIsLoading(false)
+      setIsStreaming(false)
+      setStreamingContent("")
     }
   }
 
@@ -184,21 +394,26 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
       {!isExpanded && (
         <div className="fixed right-0 top-1/2 -translate-y-1/2 z-50">
           <Button
-            onClick={() => setIsExpanded(true)}
-            className="relative h-60 w-14 rounded-l-2xl rounded-r-none bg-gradient-to-b from-secondary to-secondary/80 hover:from-secondary/90 hover:to-secondary/70 text-primary shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105 border-2 border-r-0 border-primary/20 flex flex-col items-center justify-between py-3"
+            onClick={handleCopilotActivation}
+            disabled={isCapturingPDF}
+            className="relative h-60 w-14 rounded-l-2xl rounded-r-none bg-gradient-to-b from-secondary to-secondary/80 hover:from-secondary/90 hover:to-secondary/70 text-primary shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105 border-2 border-r-0 border-primary/20 flex flex-col items-center justify-between py-3 disabled:opacity-50 "
             style={{
               boxShadow: '-10px 0 40px rgba(0, 0, 0, 0.3), 0 0 20px rgba(var(--primary), 0.4)',
             }}
           >
-            <img 
-              src="/advancelq-icon.svg" 
-              alt="AdvancelQ" 
-              className="h-5 w-5 flex-shrink-0 mt-1"
-            />
+            {isCapturingPDF ? (
+              <Loader2 className="h-5 w-5 flex-shrink-0 mt-1 animate-spin" />
+            ) : (
+              <img 
+                src="/advancelq-icon.svg" 
+                alt="AdvancelQ" 
+                className="h-5 w-5 flex-shrink-0 mt-1"
+              />
+            )}
             
             <div className="flex flex-col items-center justify-center flex-1">
               <div className="writing-mode-vertical text-sm font-semibold tracking-wider" style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}>
-                REPORT COPILOT
+                {isCapturingPDF ? 'CAPTURING...' : 'REPORT COPILOT'}
               </div>
             </div>
             
@@ -344,6 +559,45 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
                       </div>
                     </div>
                   )}
+
+                  {isStreaming && streamingContent && (
+                    <div className="flex justify-start animate-slide-in">
+                      <div className="max-w-[85%] bg-secondary/70 text-foreground backdrop-blur-sm border border-border/30 rounded-2xl px-4 py-3 shadow-md transition-all hover:shadow-lg">
+                        <div className="markdown-content text-sm">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            rehypePlugins={[rehypeRaw, rehypeSanitize]}
+                            components={{
+                              h1: ({ ...props }) => <h1 className="text-base font-bold my-2" {...props} />,
+                              h2: ({ ...props }) => <h2 className="text-sm font-bold my-2" {...props} />,
+                              h3: ({ ...props }) => <h3 className="text-xs font-bold my-1" {...props} />,
+                              p: ({ ...props }) => <p className="my-1 leading-relaxed" {...props} />,
+                              ul: ({ ...props }) => <ul className="list-disc pl-4 my-2 space-y-1" {...props} />,
+                              ol: ({ ...props }) => <ol className="list-decimal pl-4 my-2 space-y-1" {...props} />,
+                              li: ({ ...props }) => <li className="my-1" {...props} />,
+                              a: ({ ...props }) => <a className="text-primary underline hover:text-primary/80" {...props} />,
+                              code: ({ className, children, ...props }) => {
+                                const isInline = !className?.includes('language-')
+                                return isInline ? 
+                                  <code className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-xs font-mono" {...props}>{children}</code> : 
+                                  <code className="block bg-secondary/50 p-3 rounded-lg text-xs font-mono my-2 overflow-x-auto border border-border/30" {...props}>{children}</code>
+                              },
+                              blockquote: ({ ...props }) => <blockquote className="border-l-4 border-primary/50 pl-3 italic my-2 text-muted-foreground" {...props} />,
+                              table: ({ ...props }) => <table className="border-collapse w-full my-3 text-xs" {...props} />,
+                              th: ({ ...props }) => <th className="border border-border/40 px-2 py-1.5 bg-secondary/50 font-semibold" {...props} />,
+                              td: ({ ...props }) => <td className="border border-border/40 px-2 py-1.5" {...props} />,
+                            }}
+                          >
+                            {streamingContent}
+                          </ReactMarkdown>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                          <span className="text-xs opacity-60 font-mono">Streaming...</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -357,7 +611,7 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
                   onKeyDown={handleKeyPress}
                   placeholder="Ask about your dashboard insights..."
                   className="min-h-[60px] resize-none rounded-xl border-border/40 bg-background/50 backdrop-blur-sm focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm pr-12"
-                  disabled={isLoading}
+                  disabled={isLoading || isStreaming}
                 />
                 <div className="absolute bottom-2 right-2 text-xs text-muted-foreground">
                   {input.length}/500
@@ -365,13 +619,18 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
               </div>
               <Button 
                 onClick={handleAskAI} 
-                disabled={!input.trim() || isLoading} 
+                disabled={!input.trim() || isLoading || isStreaming} 
                 className="w-full rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all h-11 text-sm font-semibold"
               >
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Analyzing...
+                  </>
+                ) : isStreaming ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Streaming...
                   </>
                 ) : (
                   <>
