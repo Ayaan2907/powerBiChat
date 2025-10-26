@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Sparkles, Send, Loader2, Maximize2, Minimize2, X, Mic, MicOff, Volume2, Pause, Play } from "lucide-react"
+import { Sparkles, Send, Loader2, Maximize2, Minimize2, X, Mic, MicOff, Volume2, Pause, Play, Trash2 } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import rehypeRaw from "rehype-raw"
@@ -615,6 +615,23 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
     }
   }
 
+  const clearChat = () => {
+    setMessages([])
+    setInput("")
+    setStreamingContent("")
+    setIsStreaming(false)
+    setIsLoading(false)
+    setAudioUrls({})
+    setPlayingMessageIndex(null)
+    setIsPlayingAudio(false)
+    setIsPaused(false)
+    setLoadingAudioIndex(null)
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current = null
+    }
+  }
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
@@ -1055,6 +1072,17 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
                   )}
                   {isTranscribing && (
                     <span className="text-blue-500">Transcribing...</span>
+                  )}
+                  {messages.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearChat}
+                      className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
+                      title="Clear chat history"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
                   )}
                 </div>
               </div>

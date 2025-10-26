@@ -148,8 +148,8 @@ export function PowerBIEmbed({ reportId, embedUrl, accessToken, onDataExport }: 
         permissions: models.Permissions.All,
         settings: {
           panes: {
-            filters: { visible: true },
-            pageNavigation: { visible: true },
+            filters: { visible: false },
+            pageNavigation: { visible: false },
           },
           background: models.BackgroundType.Default,
         },

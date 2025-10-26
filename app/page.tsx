@@ -7,26 +7,12 @@ import { AIChat } from "@/components/ai-chat"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Settings, AlertCircle, Loader2, RefreshCw, Clock, User } from "lucide-react"
+import { AlertCircle, Loader2, User } from "lucide-react"
 import { usePowerBIToken } from "@/hooks/use-powerbi-token"
 
 export default function Page() {
-  const [showSetup, setShowSetup] = useState(false)
   const { isLoaded, isSignedIn, user } = useUser()
-  const { config: powerBIConfig, isLoading, error, refreshToken, timeUntilExpiry } = usePowerBIToken()
-
-  // Helper function to format time until expiry
-  const formatTimeUntilExpiry = (milliseconds: number | null) => {
-    if (!milliseconds || milliseconds <= 0) return "Expired"
-    
-    const minutes = Math.floor(milliseconds / (1000 * 60))
-    const hours = Math.floor(minutes / 60)
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes % 60}m`
-    }
-    return `${minutes}m`
-  }
+  const { config: powerBIConfig, isLoading, error } = usePowerBIToken()
 
   // Show loading while Clerk is initializing
   if (!isLoaded || isLoading) {
@@ -163,89 +149,24 @@ export default function Page() {
   // Main dashboard with Power BI embed and AI chat
   return (
     <main className="h-screen flex flex-col bg-background">
-      {/* Header - AdvancelQ.ai Brand */}
-      <header className="border-b border-border/40 bg-card/50 backdrop-blur-md sticky top-0 z-50">
-        <div className="container mx-auto px-4 lg:px-6 py-3 lg:py-4">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="flex items-center gap-3 lg:gap-4">
-              <img 
-                src="/advancelq-logo.svg" 
-                alt="AdvanceIQ.ai" 
-                className="h-8 lg:h-10 w-auto"
-              />
-              
+      {/* Minimal user info area */}
+      <div className="absolute top-4 right-4 z-50 flex items-center gap-3 bg-background/80 backdrop-blur-sm px-3 py-2 rounded-lg border border-border/40">
+        <span className="text-sm text-foreground">
+          {user?.firstName || user?.emailAddresses[0]?.emailAddress || 'User'}
+        </span>
+        <UserButton 
+          appearance={{
+            elements: {
+              avatarBox: "w-8 h-8 ring-2 ring-primary/20",
+              userButtonPopoverCard: "shadow-xl border border-border/40",
+            },
+          }}
+          afterSignOutUrl="/sign-in"
+        />
+      </div>
 
-              <div className="flex items-center gap-3 lg:gap-4">
-                <h1 className="text-lg lg:text-xl font-bold text-foreground tracking-tight">
-                  AdvanceIQ.ai
-                </h1>
-                
-                <div className="hidden md:flex items-center gap-3 lg:gap-4">
-                  <div className="h-8 w-px bg-border/40"></div>
-                  <div>
-                    {/* <h2 className="text-base lg:text-lg font-semibold text-foreground">
-                      Power BI Analytics
-                    </h2> */}
-                    <p className="text-xs lg:text-sm text-foreground">
-                      Welcome, {user?.firstName || user?.emailAddresses[0]?.emailAddress || 'User'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-
-            <div className="flex items-center gap-2 lg:gap-3 flex-wrap">
-
-              {powerBIConfig && (
-                <div className="hidden xl:flex items-center gap-2 text-sm bg-secondary/50 px-3 py-1.5 rounded-lg">
-                  <Clock className="h-4 w-4 text-primary" />
-                  <span className="text-muted-foreground text-xs">
-                    {formatTimeUntilExpiry(timeUntilExpiry)}
-                  </span>
-                </div>
-              )}
-              
-              {/* Refresh Button */}
-              {/* <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={refreshToken}
-                disabled={isLoading}
-                className="border-primary/30 hover:border-primary hover:bg-primary/10 transition-all"
-              >
-                <RefreshCw className={`h-4 w-4 lg:mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                <span className="hidden lg:inline">Refresh</span>
-              </Button> */}
-              
-              {/* Setup Button */}
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setShowSetup(!showSetup)}
-                className="hidden md:flex border-border/40 hover:border-primary/30"
-              >
-                <Settings className="h-4 w-4 lg:mr-2" />
-                <span className="hidden lg:inline">Setup</span>
-              </Button>
-              
-              {/* User Profile Button */}
-              <UserButton 
-                appearance={{
-                  elements: {
-                    avatarBox: "w-8 h-8 ring-2 ring-primary/20",
-                    userButtonPopoverCard: "shadow-xl border border-border/40",
-                  },
-                }}
-                afterSignOutUrl="/sign-in"
-              />
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main content area - Responsive Layout */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+      {/* Main content area - Full height */}
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Power BI Report - Responsive */}
         {/* PowerBI Embed - Full Width */}
         <div className="flex-1 overflow-hidden">
