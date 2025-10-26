@@ -361,7 +361,7 @@ async def text_to_speech(request: Request):
     try:
         data = await request.json()
         text = data.get("text", "")
-        voice = data.get("voice", "alloy")  # Default voice
+        voice = data.get("voice", "alloy" )  # Default voice
         
         if not text:
             return {"error": "No text provided"}

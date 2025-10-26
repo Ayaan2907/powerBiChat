@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Sparkles, Send, Loader2, Maximize2, Minimize2, X, Mic, MicOff, Volume2 } from "lucide-react"
+import { Sparkles, Send, Loader2, Maximize2, Minimize2, X, Mic, MicOff, Volume2, Pause, Play } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import rehypeRaw from "rehype-raw"
@@ -34,6 +34,10 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
   const [isRecording, setIsRecording] = useState(false)
   const [isTranscribing, setIsTranscribing] = useState(false)
   const [isPlayingAudio, setIsPlayingAudio] = useState(false)
+  const [playingMessageIndex, setPlayingMessageIndex] = useState<number | null>(null)
+  const [audioUrls, setAudioUrls] = useState<{[key: number]: string}>({})
+  const [isPaused, setIsPaused] = useState(false)
+  const [loadingAudioIndex, setLoadingAudioIndex] = useState<number | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
@@ -218,10 +222,94 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
     }
   }
 
-  // Function to convert text to speech
-  const playTextToSpeech = async (text: string) => {
+  // Function to convert text to speech for a specific message
+  const playTextToSpeech = async (text: string, messageIndex: number) => {
     try {
-      setIsPlayingAudio(true)
+      // Prevent multiple clicks if already loading
+      if (loadingAudioIndex === messageIndex) {
+        return
+      }
+
+      // If this message is currently playing
+      if (playingMessageIndex === messageIndex && isPlayingAudio && !isPaused) {
+        // Pause the audio
+        if (audioRef.current) {
+          audioRef.current.pause()
+          setIsPaused(true)
+          setIsPlayingAudio(false)
+        }
+        return
+      }
+
+      // If this message is paused, resume it
+      if (playingMessageIndex === messageIndex && isPaused && audioRef.current) {
+        try {
+          await audioRef.current.play()
+          setIsPaused(false)
+          setIsPlayingAudio(true)
+        } catch (error) {
+          console.error('Error resuming audio:', error)
+          setIsPaused(false)
+          setIsPlayingAudio(false)
+          setPlayingMessageIndex(null)
+        }
+        return
+      }
+
+      // Stop any currently playing audio from other messages
+      if (audioRef.current && playingMessageIndex !== messageIndex) {
+        audioRef.current.pause()
+        audioRef.current.currentTime = 0
+        setIsPlayingAudio(false)
+        setPlayingMessageIndex(null)
+        setIsPaused(false)
+      }
+
+      // Check if we already have audio for this message
+      if (audioUrls[messageIndex]) {
+        // Use existing audio
+        const audio = new Audio(audioUrls[messageIndex])
+        audioRef.current = audio
+        
+        // Set up event listeners
+        audio.onplay = () => {
+          setIsPlayingAudio(true)
+          setPlayingMessageIndex(messageIndex)
+          setIsPaused(false)
+        }
+        
+        audio.onpause = () => {
+          setIsPlayingAudio(false)
+          setIsPaused(true)
+        }
+        
+        audio.onended = () => {
+          setIsPlayingAudio(false)
+          setPlayingMessageIndex(null)
+          setIsPaused(false)
+        }
+        
+        audio.onerror = () => {
+          setIsPlayingAudio(false)
+          setPlayingMessageIndex(null)
+          setIsPaused(false)
+          console.error('Audio playback error')
+        }
+
+        // Only play when user clicks, don't auto-play
+        try {
+          await audio.play()
+        } catch (error) {
+          console.error('Error playing audio:', error)
+          setIsPlayingAudio(false)
+          setPlayingMessageIndex(null)
+          setIsPaused(false)
+        }
+        return
+      }
+
+      // Generate new audio for this message
+      setLoadingAudioIndex(messageIndex)
       
       const response = await fetch('http://localhost:8000/text-to-speech', {
         method: 'POST',
@@ -238,30 +326,60 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
       }
 
       if (data.audioData) {
-        // Stop any currently playing audio
-        if (audioRef.current) {
-          audioRef.current.pause()
-          audioRef.current.currentTime = 0
-        }
+        // Store the audio URL for future use
+        setAudioUrls(prev => ({
+          ...prev,
+          [messageIndex]: data.audioData
+        }))
 
         // Create new audio element
         const audio = new Audio(data.audioData)
         audioRef.current = audio
         
+        // Set up event listeners
+        audio.onplay = () => {
+          setIsPlayingAudio(true)
+          setPlayingMessageIndex(messageIndex)
+          setIsPaused(false)
+          setLoadingAudioIndex(null)
+        }
+        
+        audio.onpause = () => {
+          setIsPlayingAudio(false)
+          setIsPaused(true)
+        }
+        
         audio.onended = () => {
           setIsPlayingAudio(false)
+          setPlayingMessageIndex(null)
+          setIsPaused(false)
         }
         
         audio.onerror = () => {
           setIsPlayingAudio(false)
+          setPlayingMessageIndex(null)
+          setIsPaused(false)
+          setLoadingAudioIndex(null)
           console.error('Audio playback error')
         }
 
-        await audio.play()
+        // Only play when user clicks, don't auto-play
+        try {
+          await audio.play()
+        } catch (error) {
+          console.error('Error playing audio:', error)
+          setIsPlayingAudio(false)
+          setPlayingMessageIndex(null)
+          setIsPaused(false)
+          setLoadingAudioIndex(null)
+        }
       }
     } catch (error) {
       console.error('Text-to-speech error:', error)
+      setLoadingAudioIndex(null)
       setIsPlayingAudio(false)
+      setPlayingMessageIndex(null)
+      setIsPaused(false)
     }
   }
 
@@ -443,11 +561,6 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
                     setMessages((prev) => [...prev, assistantMessage])
                     setStreamingContent("")
                     setIsStreaming(false)
-                    
-                    // Play text-to-speech for the AI response
-                    if (accumulatedContent) {
-                      playTextToSpeech(accumulatedContent)
-                    }
                     return
                   } else if (data.type === 'error') {
                     // Handle error
@@ -508,6 +621,49 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
       handleAskAI()
     }
   }
+
+  // Handle preset message selection
+  const handlePresetMessage = (message: string) => {
+    setInput(message)
+    // Small delay to ensure input is set before triggering AI
+    setTimeout(() => {
+      handleAskAI()
+    }, 100)
+  }
+
+  // Preset messages for common queries
+  const presetMessages = [
+    {
+      title: "Summarize Report",
+      message: "Please provide a comprehensive summary of this Power BI report, highlighting the key metrics and insights.",
+      icon: "📊"
+    },
+    {
+      title: "Key Insights",
+      message: "What are the most important insights and trends visible in this dashboard?",
+      icon: "💡"
+    },
+    {
+      title: "Data Anomalies",
+      message: "Are there any unusual patterns, outliers, or anomalies in this data that I should be aware of?",
+      icon: "🔍"
+    },
+    {
+      title: "Performance Analysis",
+      message: "Analyze the performance metrics shown in this report and identify areas for improvement.",
+      icon: "📈"
+    },
+    {
+      title: "Recommendations",
+      message: "Based on the data shown, what actionable recommendations would you suggest?",
+      icon: "🎯"
+    },
+    {
+      title: "Explain Trends",
+      message: "Explain the trends and patterns visible in this visualization and what they might indicate.",
+      icon: "📉"
+    }
+  ]
 
   return (
     <>
@@ -596,20 +752,33 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
                       Ask about trends, patterns, or insights in your current Power BI visual
                     </p>
                   </div>
-                  <div className="bg-secondary/30 rounded-lg p-4 space-y-2 text-xs text-muted-foreground max-w-xs">
-                    <p className="font-semibold text-foreground">Try asking:</p>
-                    <div className="space-y-1 text-left">
-                      <p className="flex items-center gap-2">
-                        <span className="w-1 h-1 rounded-full bg-primary"></span>
-                        "What are the key trends?"
-                      </p>
-                      <p className="flex items-center gap-2">
-                        <span className="w-1 h-1 rounded-full bg-primary"></span>
-                        "Any anomalies in this data?"
-                      </p>
-                      <p className="flex items-center gap-2">
-                        <span className="w-1 h-1 rounded-full bg-primary"></span>
-                        "Summarize the insights"
+                  
+                  {/* Preset Message Buttons */}
+                  <div className="w-full max-w-md space-y-3">
+                    <p className="text-xs font-semibold text-foreground mb-3">Quick start with these common queries:</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {presetMessages.map((preset, index) => (
+                        <Button
+                          key={index}
+                          variant="outline"
+                          size="sm"
+                          className="h-auto p-3 text-left flex items-center gap-2 hover:bg-primary/5 hover:border-primary/30 transition-all group"
+                          onClick={() => handlePresetMessage(preset.message)}
+                          disabled={isLoading || isStreaming || isTranscribing}
+                        >
+                          <span className="text-base group-hover:scale-110 transition-transform">
+                            {preset.icon}
+                          </span>
+                          <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors">
+                            {preset.title}
+                          </span>
+                        </Button>
+                      ))}
+                    </div>
+                    
+                    <div className="pt-2 border-t border-border/30">
+                      <p className="text-xs text-muted-foreground">
+                        Or type your own question below
                       </p>
                     </div>
                   </div>
@@ -633,33 +802,70 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
                             {message.content}
                           </p>
                         ) : (
-                          <div className="markdown-content text-sm">
-                            <ReactMarkdown
-                              remarkPlugins={[remarkGfm]}
-                              rehypePlugins={[rehypeRaw, rehypeSanitize]}
-                              components={{
-                                h1: ({ ...props }) => <h1 className="text-base font-bold my-2" {...props} />,
-                                h2: ({ ...props }) => <h2 className="text-sm font-bold my-2" {...props} />,
-                                h3: ({ ...props }) => <h3 className="text-xs font-bold my-1" {...props} />,
-                                p: ({ ...props }) => <p className="my-1 leading-relaxed" {...props} />,
-                                ul: ({ ...props }) => <ul className="list-disc pl-4 my-2 space-y-1" {...props} />,
-                                ol: ({ ...props }) => <ol className="list-decimal pl-4 my-2 space-y-1" {...props} />,
-                                li: ({ ...props }) => <li className="my-1" {...props} />,
-                                a: ({ ...props }) => <a className="text-primary underline hover:text-primary/80" {...props} />,
-                                code: ({ className, children, ...props }) => {
-                                  const isInline = !className?.includes('language-')
-                                  return isInline ? 
-                                    <code className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-xs font-mono" {...props}>{children}</code> : 
-                                    <code className="block bg-secondary/50 p-3 rounded-lg text-xs font-mono my-2 overflow-x-auto border border-border/30" {...props}>{children}</code>
-                                },
-                                blockquote: ({ ...props }) => <blockquote className="border-l-4 border-primary/50 pl-3 italic my-2 text-muted-foreground" {...props} />,
-                                table: ({ ...props }) => <table className="border-collapse w-full my-3 text-xs" {...props} />,
-                                th: ({ ...props }) => <th className="border border-border/40 px-2 py-1.5 bg-secondary/50 font-semibold" {...props} />,
-                                td: ({ ...props }) => <td className="border border-border/40 px-2 py-1.5" {...props} />,
-                              }}
-                            >
-                              {message.content}
-                            </ReactMarkdown>
+                          <div className="space-y-2">
+                            <div className="markdown-content text-sm">
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                rehypePlugins={[rehypeRaw, rehypeSanitize]}
+                                components={{
+                                  h1: ({ ...props }) => <h1 className="text-base font-bold my-2" {...props} />,
+                                  h2: ({ ...props }) => <h2 className="text-sm font-bold my-2" {...props} />,
+                                  h3: ({ ...props }) => <h3 className="text-xs font-bold my-1" {...props} />,
+                                  p: ({ ...props }) => <p className="my-1 leading-relaxed" {...props} />,
+                                  ul: ({ ...props }) => <ul className="list-disc pl-4 my-2 space-y-1" {...props} />,
+                                  ol: ({ ...props }) => <ol className="list-decimal pl-4 my-2 space-y-1" {...props} />,
+                                  li: ({ ...props }) => <li className="my-1" {...props} />,
+                                  a: ({ ...props }) => <a className="text-primary underline hover:text-primary/80" {...props} />,
+                                  code: ({ className, children, ...props }) => {
+                                    const isInline = !className?.includes('language-')
+                                    return isInline ? 
+                                      <code className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-xs font-mono" {...props}>{children}</code> : 
+                                      <code className="block bg-secondary/50 p-3 rounded-lg text-xs font-mono my-2 overflow-x-auto border border-border/30" {...props}>{children}</code>
+                                  },
+                                  blockquote: ({ ...props }) => <blockquote className="border-l-4 border-primary/50 pl-3 italic my-2 text-muted-foreground" {...props} />,
+                                  table: ({ ...props }) => <table className="border-collapse w-full my-3 text-xs" {...props} />,
+                                  th: ({ ...props }) => <th className="border border-border/40 px-2 py-1.5 bg-secondary/50 font-semibold" {...props} />,
+                                  td: ({ ...props }) => <td className="border border-border/40 px-2 py-1.5" {...props} />,
+                                }}
+                              >
+                                {message.content}
+                              </ReactMarkdown>
+                            </div>
+                            
+                            {/* Play/Pause button for AI responses */}
+                            <div className="flex justify-end pt-1">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0 hover:bg-primary/10"
+                                onClick={() => playTextToSpeech(message.content, index)}
+                                disabled={loadingAudioIndex === index}
+                                title={
+                                  loadingAudioIndex === index
+                                    ? "Loading audio..."
+                                    : playingMessageIndex === index && isPlayingAudio && !isPaused
+                                    ? "Pause audio"
+                                    : playingMessageIndex === index && isPaused
+                                    ? "Resume audio"
+                                    : "Play audio"
+                                }
+                              >
+                                {loadingAudioIndex === index ? (
+                                  <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />
+                                ) : playingMessageIndex === index && isPlayingAudio && !isPaused ? (
+                                  <Pause className="h-3.5 w-3.5 text-primary" />
+                                ) : (
+                                  <Play 
+                                    className={`h-3.5 w-3.5 ${
+                                      playingMessageIndex === index && isPaused
+                                        ? 'text-primary' 
+                                        : 'text-muted-foreground hover:text-primary'
+                                    }`} 
+                                  />
+                                )}
+                              </Button>
+                            </div>
                           </div>
                         )}
                         <p className="text-xs opacity-60 mt-1.5 font-mono">
@@ -836,24 +1042,6 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
                     </>
                   )}
                 </Button>
-                
-                {/* Audio playback control */}
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-11 px-3"
-                  onClick={() => {
-                    if (isPlayingAudio && audioRef.current) {
-                      audioRef.current.pause()
-                      setIsPlayingAudio(false)
-                    }
-                  }}
-                  disabled={!isPlayingAudio}
-                  title="Stop audio playback"
-                >
-                  <Volume2 className={`h-4 w-4 ${isPlayingAudio ? 'animate-pulse' : ''}`} />
-                </Button>
               </div>
               
               <div className="flex justify-between items-center text-xs text-muted-foreground">
@@ -867,9 +1055,6 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
                   )}
                   {isTranscribing && (
                     <span className="text-blue-500">Transcribing...</span>
-                  )}
-                  {isPlayingAudio && (
-                    <span className="text-green-500">Playing audio...</span>
                   )}
                 </div>
               </div>
