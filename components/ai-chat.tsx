@@ -1,17 +1,17 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useRef, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Sparkles, Send, Loader2, Maximize2, Minimize2, X } from "lucide-react"
+import { Sparkles, Send, Loader2, Maximize2, Minimize2, X, Mic, MicOff, Volume2, Pause, Play } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import rehypeRaw from "rehype-raw"
 import rehypeSanitize from "rehype-sanitize"
+import { ReactMediaRecorder } from "react-media-recorder"
 
 interface Message {
   role: "user" | "assistant"
@@ -31,7 +31,15 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
   const [isCapturingPDF, setIsCapturingPDF] = useState(false)
   const [streamingContent, setStreamingContent] = useState("")
   const [isStreaming, setIsStreaming] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const [isTranscribing, setIsTranscribing] = useState(false)
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false)
+  const [playingMessageIndex, setPlayingMessageIndex] = useState<number | null>(null)
+  const [audioUrls, setAudioUrls] = useState<{[key: number]: string}>({})
+  const [isPaused, setIsPaused] = useState(false)
+  const [loadingAudioIndex, setLoadingAudioIndex] = useState<number | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
 
   // Function to capture viewport as PDF using native browser print
   const captureViewportAsPDF = async (): Promise<Blob | null> => {
@@ -146,6 +154,232 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
     } catch (error) {
       console.error('[Screenshot] Error capturing viewport:', error)
       return null
+    }
+  }
+
+  // Function to transcribe audio using OpenAI Whisper
+  const transcribeAudio = async (audioBlob: Blob): Promise<string> => {
+    try {
+      setIsTranscribing(true)
+      
+      console.log('Transcribing audio blob:', {
+        size: audioBlob.size,
+        type: audioBlob.type
+      })
+
+      // Validate audio blob
+      if (audioBlob.size === 0) {
+        throw new Error('Audio blob is empty')
+      }
+
+      // Convert blob to base64
+      const reader = new FileReader()
+      const base64Audio = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string
+          console.log('Base64 audio length:', result.length)
+          resolve(result)
+        }
+        reader.onerror = (error) => {
+          console.error('FileReader error:', error)
+          reject(error)
+        }
+        reader.readAsDataURL(audioBlob)
+      })
+
+      console.log('Sending transcription request to backend...')
+      const response = await fetch('http://localhost:8000/transcribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ audioData: base64Audio }),
+      })
+
+      console.log('Transcription response status:', response.status)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+      console.log('Transcription response:', data)
+      
+      if (data.error) {
+        throw new Error(data.error)
+      }
+
+      const transcript = data.transcript || ''
+      console.log('Transcript received:', transcript)
+      return transcript
+    } catch (error) {
+      console.error('Transcription error:', error)
+      // Show user-friendly error message
+      alert(`Transcription failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      return ''
+    } finally {
+      setIsTranscribing(false)
+    }
+  }
+
+  // Function to convert text to speech for a specific message
+  const playTextToSpeech = async (text: string, messageIndex: number) => {
+    try {
+      // Prevent multiple clicks if already loading
+      if (loadingAudioIndex === messageIndex) {
+        return
+      }
+
+      // If this message is currently playing
+      if (playingMessageIndex === messageIndex && isPlayingAudio && !isPaused) {
+        // Pause the audio
+        if (audioRef.current) {
+          audioRef.current.pause()
+          setIsPaused(true)
+          setIsPlayingAudio(false)
+        }
+        return
+      }
+
+      // If this message is paused, resume it
+      if (playingMessageIndex === messageIndex && isPaused && audioRef.current) {
+        try {
+          await audioRef.current.play()
+          setIsPaused(false)
+          setIsPlayingAudio(true)
+        } catch (error) {
+          console.error('Error resuming audio:', error)
+          setIsPaused(false)
+          setIsPlayingAudio(false)
+          setPlayingMessageIndex(null)
+        }
+        return
+      }
+
+      // Stop any currently playing audio from other messages
+      if (audioRef.current && playingMessageIndex !== messageIndex) {
+        audioRef.current.pause()
+        audioRef.current.currentTime = 0
+        setIsPlayingAudio(false)
+        setPlayingMessageIndex(null)
+        setIsPaused(false)
+      }
+
+      // Check if we already have audio for this message
+      if (audioUrls[messageIndex]) {
+        // Use existing audio
+        const audio = new Audio(audioUrls[messageIndex])
+        audioRef.current = audio
+        
+        // Set up event listeners
+        audio.onplay = () => {
+          setIsPlayingAudio(true)
+          setPlayingMessageIndex(messageIndex)
+          setIsPaused(false)
+        }
+        
+        audio.onpause = () => {
+          setIsPlayingAudio(false)
+          setIsPaused(true)
+        }
+        
+        audio.onended = () => {
+          setIsPlayingAudio(false)
+          setPlayingMessageIndex(null)
+          setIsPaused(false)
+        }
+        
+        audio.onerror = () => {
+          setIsPlayingAudio(false)
+          setPlayingMessageIndex(null)
+          setIsPaused(false)
+          console.error('Audio playback error')
+        }
+
+        // Only play when user clicks, don't auto-play
+        try {
+          await audio.play()
+        } catch (error) {
+          console.error('Error playing audio:', error)
+          setIsPlayingAudio(false)
+          setPlayingMessageIndex(null)
+          setIsPaused(false)
+        }
+        return
+      }
+
+      // Generate new audio for this message
+      setLoadingAudioIndex(messageIndex)
+      
+      const response = await fetch('http://localhost:8000/text-to-speech', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text, voice: 'alloy' }),
+      })
+
+      const data = await response.json()
+      
+      if (data.error) {
+        throw new Error(data.error)
+      }
+
+      if (data.audioData) {
+        // Store the audio URL for future use
+        setAudioUrls(prev => ({
+          ...prev,
+          [messageIndex]: data.audioData
+        }))
+
+        // Create new audio element
+        const audio = new Audio(data.audioData)
+        audioRef.current = audio
+        
+        // Set up event listeners
+        audio.onplay = () => {
+          setIsPlayingAudio(true)
+          setPlayingMessageIndex(messageIndex)
+          setIsPaused(false)
+          setLoadingAudioIndex(null)
+        }
+        
+        audio.onpause = () => {
+          setIsPlayingAudio(false)
+          setIsPaused(true)
+        }
+        
+        audio.onended = () => {
+          setIsPlayingAudio(false)
+          setPlayingMessageIndex(null)
+          setIsPaused(false)
+        }
+        
+        audio.onerror = () => {
+          setIsPlayingAudio(false)
+          setPlayingMessageIndex(null)
+          setIsPaused(false)
+          setLoadingAudioIndex(null)
+          console.error('Audio playback error')
+        }
+
+        // Only play when user clicks, don't auto-play
+        try {
+          await audio.play()
+        } catch (error) {
+          console.error('Error playing audio:', error)
+          setIsPlayingAudio(false)
+          setPlayingMessageIndex(null)
+          setIsPaused(false)
+          setLoadingAudioIndex(null)
+        }
+      }
+    } catch (error) {
+      console.error('Text-to-speech error:', error)
+      setLoadingAudioIndex(null)
+      setIsPlayingAudio(false)
+      setPlayingMessageIndex(null)
+      setIsPaused(false)
     }
   }
 
@@ -388,6 +622,49 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
     }
   }
 
+  // Handle preset message selection
+  const handlePresetMessage = (message: string) => {
+    setInput(message)
+    // Small delay to ensure input is set before triggering AI
+    setTimeout(() => {
+      handleAskAI()
+    }, 100)
+  }
+
+  // Preset messages for common queries
+  const presetMessages = [
+    {
+      title: "Summarize Report",
+      message: "Please provide a comprehensive summary of this Power BI report, highlighting the key metrics and insights.",
+      icon: "📊"
+    },
+    {
+      title: "Key Insights",
+      message: "What are the most important insights and trends visible in this dashboard?",
+      icon: "💡"
+    },
+    {
+      title: "Data Anomalies",
+      message: "Are there any unusual patterns, outliers, or anomalies in this data that I should be aware of?",
+      icon: "🔍"
+    },
+    {
+      title: "Performance Analysis",
+      message: "Analyze the performance metrics shown in this report and identify areas for improvement.",
+      icon: "📈"
+    },
+    {
+      title: "Recommendations",
+      message: "Based on the data shown, what actionable recommendations would you suggest?",
+      icon: "🎯"
+    },
+    {
+      title: "Explain Trends",
+      message: "Explain the trends and patterns visible in this visualization and what they might indicate.",
+      icon: "📉"
+    }
+  ]
+
   return (
     <>
       {/* Chat Toggle Button - Fixed Right Side Vertical */}
@@ -475,20 +752,33 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
                       Ask about trends, patterns, or insights in your current Power BI visual
                     </p>
                   </div>
-                  <div className="bg-secondary/30 rounded-lg p-4 space-y-2 text-xs text-muted-foreground max-w-xs">
-                    <p className="font-semibold text-foreground">Try asking:</p>
-                    <div className="space-y-1 text-left">
-                      <p className="flex items-center gap-2">
-                        <span className="w-1 h-1 rounded-full bg-primary"></span>
-                        "What are the key trends?"
-                      </p>
-                      <p className="flex items-center gap-2">
-                        <span className="w-1 h-1 rounded-full bg-primary"></span>
-                        "Any anomalies in this data?"
-                      </p>
-                      <p className="flex items-center gap-2">
-                        <span className="w-1 h-1 rounded-full bg-primary"></span>
-                        "Summarize the insights"
+                  
+                  {/* Preset Message Buttons */}
+                  <div className="w-full max-w-md space-y-3">
+                    <p className="text-xs font-semibold text-foreground mb-3">Quick start with these common queries:</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {presetMessages.map((preset, index) => (
+                        <Button
+                          key={index}
+                          variant="outline"
+                          size="sm"
+                          className="h-auto p-3 text-left flex items-center gap-2 hover:bg-primary/5 hover:border-primary/30 transition-all group"
+                          onClick={() => handlePresetMessage(preset.message)}
+                          disabled={isLoading || isStreaming || isTranscribing}
+                        >
+                          <span className="text-base group-hover:scale-110 transition-transform">
+                            {preset.icon}
+                          </span>
+                          <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors">
+                            {preset.title}
+                          </span>
+                        </Button>
+                      ))}
+                    </div>
+                    
+                    <div className="pt-2 border-t border-border/30">
+                      <p className="text-xs text-muted-foreground">
+                        Or type your own question below
                       </p>
                     </div>
                   </div>
@@ -512,33 +802,70 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
                             {message.content}
                           </p>
                         ) : (
-                          <div className="markdown-content text-sm">
-                            <ReactMarkdown
-                              remarkPlugins={[remarkGfm]}
-                              rehypePlugins={[rehypeRaw, rehypeSanitize]}
-                              components={{
-                                h1: ({ ...props }) => <h1 className="text-base font-bold my-2" {...props} />,
-                                h2: ({ ...props }) => <h2 className="text-sm font-bold my-2" {...props} />,
-                                h3: ({ ...props }) => <h3 className="text-xs font-bold my-1" {...props} />,
-                                p: ({ ...props }) => <p className="my-1 leading-relaxed" {...props} />,
-                                ul: ({ ...props }) => <ul className="list-disc pl-4 my-2 space-y-1" {...props} />,
-                                ol: ({ ...props }) => <ol className="list-decimal pl-4 my-2 space-y-1" {...props} />,
-                                li: ({ ...props }) => <li className="my-1" {...props} />,
-                                a: ({ ...props }) => <a className="text-primary underline hover:text-primary/80" {...props} />,
-                                code: ({ className, children, ...props }) => {
-                                  const isInline = !className?.includes('language-')
-                                  return isInline ? 
-                                    <code className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-xs font-mono" {...props}>{children}</code> : 
-                                    <code className="block bg-secondary/50 p-3 rounded-lg text-xs font-mono my-2 overflow-x-auto border border-border/30" {...props}>{children}</code>
-                                },
-                                blockquote: ({ ...props }) => <blockquote className="border-l-4 border-primary/50 pl-3 italic my-2 text-muted-foreground" {...props} />,
-                                table: ({ ...props }) => <table className="border-collapse w-full my-3 text-xs" {...props} />,
-                                th: ({ ...props }) => <th className="border border-border/40 px-2 py-1.5 bg-secondary/50 font-semibold" {...props} />,
-                                td: ({ ...props }) => <td className="border border-border/40 px-2 py-1.5" {...props} />,
-                              }}
-                            >
-                              {message.content}
-                            </ReactMarkdown>
+                          <div className="space-y-2">
+                            <div className="markdown-content text-sm">
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                rehypePlugins={[rehypeRaw, rehypeSanitize]}
+                                components={{
+                                  h1: ({ ...props }) => <h1 className="text-base font-bold my-2" {...props} />,
+                                  h2: ({ ...props }) => <h2 className="text-sm font-bold my-2" {...props} />,
+                                  h3: ({ ...props }) => <h3 className="text-xs font-bold my-1" {...props} />,
+                                  p: ({ ...props }) => <p className="my-1 leading-relaxed" {...props} />,
+                                  ul: ({ ...props }) => <ul className="list-disc pl-4 my-2 space-y-1" {...props} />,
+                                  ol: ({ ...props }) => <ol className="list-decimal pl-4 my-2 space-y-1" {...props} />,
+                                  li: ({ ...props }) => <li className="my-1" {...props} />,
+                                  a: ({ ...props }) => <a className="text-primary underline hover:text-primary/80" {...props} />,
+                                  code: ({ className, children, ...props }) => {
+                                    const isInline = !className?.includes('language-')
+                                    return isInline ? 
+                                      <code className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-xs font-mono" {...props}>{children}</code> : 
+                                      <code className="block bg-secondary/50 p-3 rounded-lg text-xs font-mono my-2 overflow-x-auto border border-border/30" {...props}>{children}</code>
+                                  },
+                                  blockquote: ({ ...props }) => <blockquote className="border-l-4 border-primary/50 pl-3 italic my-2 text-muted-foreground" {...props} />,
+                                  table: ({ ...props }) => <table className="border-collapse w-full my-3 text-xs" {...props} />,
+                                  th: ({ ...props }) => <th className="border border-border/40 px-2 py-1.5 bg-secondary/50 font-semibold" {...props} />,
+                                  td: ({ ...props }) => <td className="border border-border/40 px-2 py-1.5" {...props} />,
+                                }}
+                              >
+                                {message.content}
+                              </ReactMarkdown>
+                            </div>
+                            
+                            {/* Play/Pause button for AI responses */}
+                            <div className="flex justify-end pt-1">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0 hover:bg-primary/10"
+                                onClick={() => playTextToSpeech(message.content, index)}
+                                disabled={loadingAudioIndex === index}
+                                title={
+                                  loadingAudioIndex === index
+                                    ? "Loading audio..."
+                                    : playingMessageIndex === index && isPlayingAudio && !isPaused
+                                    ? "Pause audio"
+                                    : playingMessageIndex === index && isPaused
+                                    ? "Resume audio"
+                                    : "Play audio"
+                                }
+                              >
+                                {loadingAudioIndex === index ? (
+                                  <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />
+                                ) : playingMessageIndex === index && isPlayingAudio && !isPaused ? (
+                                  <Pause className="h-3.5 w-3.5 text-primary" />
+                                ) : (
+                                  <Play 
+                                    className={`h-3.5 w-3.5 ${
+                                      playingMessageIndex === index && isPaused
+                                        ? 'text-primary' 
+                                        : 'text-muted-foreground hover:text-primary'
+                                    }`} 
+                                  />
+                                )}
+                              </Button>
+                            </div>
                           </div>
                         )}
                         <p className="text-xs opacity-60 mt-1.5 font-mono">
@@ -602,7 +929,7 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
               )}
             </div>
 
-            {/* Input Area - Responsive & Modern */}
+            {/* Input Area - Responsive & Modern with Voice Controls */}
             <div className="flex-shrink-0 border-t border-border/40 bg-secondary/20 backdrop-blur-sm p-4 space-y-3">
               <div className="relative">
                 <Textarea
@@ -610,38 +937,127 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyPress}
                   placeholder="Ask about your dashboard insights..."
-                  className="min-h-[60px] resize-none rounded-xl border-border/40 bg-background/50 backdrop-blur-sm focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm pr-12"
-                  disabled={isLoading || isStreaming}
+                  className="min-h-[60px] resize-none rounded-xl border-border/40 bg-background/50 backdrop-blur-sm focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm pr-24"
+                  disabled={isLoading || isStreaming || isTranscribing}
                 />
-                <div className="absolute bottom-2 right-2 text-xs text-muted-foreground">
-                  {input.length}/500
+                <div className="absolute bottom-2 right-2 flex items-center gap-2">
+                  <ReactMediaRecorder
+                    audio
+                    askPermissionOnMount
+                    onStart={() => {
+                      console.log('Recording started')
+                      setIsRecording(true)
+                    }}
+                    onStop={async (blobUrl, blob) => {
+                      console.log('Recording stopped', { blobUrl, blob })
+                      setIsRecording(false)
+                      if (blob && blob.size > 0) {
+                        console.log('Processing audio blob:', blob.size, 'bytes')
+                        const transcript = await transcribeAudio(blob)
+                        if (transcript) {
+                          setInput(prev => prev + (prev ? ' ' : '') + transcript)
+                        }
+                      } else {
+                        console.error('No audio blob received or blob is empty')
+                      }
+                    }}
+                    mediaRecorderOptions={{
+                      audioBitsPerSecond: 128000,
+                    }}
+                    render={({ status, startRecording, stopRecording, error }) => {
+                      console.log('ReactMediaRecorder status:', status, 'error:', error)
+                      
+                      // Handle errors in the render function
+                      if (error) {
+                        console.error('ReactMediaRecorder error:', error)
+                        setIsRecording(false)
+                      }
+                      
+                      return (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={isRecording ? "destructive" : "outline"}
+                          className="h-8 w-8 p-0"
+                          onClick={async () => {
+                            if (isRecording) {
+                              console.log('Stopping recording...')
+                              stopRecording()
+                            } else {
+                              console.log('Starting recording...')
+                              try {
+                                await startRecording()
+                              } catch (err) {
+                                console.error('Failed to start recording:', err)
+                                setIsRecording(false)
+                              }
+                            }
+                          }}
+                          disabled={isLoading || isStreaming || isTranscribing || status === 'permission_denied'}
+                          title={
+                            status === 'permission_denied' 
+                              ? "Microphone permission denied" 
+                              : isRecording 
+                                ? "Stop recording" 
+                                : "Start voice recording"
+                          }
+                        >
+                          {isTranscribing ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : isRecording ? (
+                            <MicOff className="h-4 w-4" />
+                          ) : (
+                            <Mic className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )
+                    }}
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    {input.length}/500
+                  </span>
                 </div>
               </div>
-              <Button 
-                onClick={handleAskAI} 
-                disabled={!input.trim() || isLoading || isStreaming} 
-                className="w-full rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all h-11 text-sm font-semibold"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Analyzing...
-                  </>
-                ) : isStreaming ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Streaming...
-                  </>
-                ) : (
-                  <>
-                    <Send className="mr-2 h-4 w-4" />
-                    Ask AI
-                  </>
-                )}
-              </Button>
-              <p className="text-xs text-muted-foreground text-center">
-                Press Enter to send • Shift+Enter for new line
-              </p>
+              
+              <div className="flex gap-2">
+                <Button 
+                  onClick={handleAskAI} 
+                  disabled={!input.trim() || isLoading || isStreaming} 
+                  className="flex-1 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all h-11 text-sm font-semibold"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : isStreaming ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Streaming...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="mr-2 h-4 w-4" />
+                      Ask AI
+                    </>
+                  )}
+                </Button>
+              </div>
+              
+              <div className="flex justify-between items-center text-xs text-muted-foreground">
+                <span>Press Enter to send • Shift+Enter for new line</span>
+                <div className="flex items-center gap-2">
+                  {isRecording && (
+                    <span className="flex items-center gap-1 text-red-500">
+                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                      Recording...
+                    </span>
+                  )}
+                  {isTranscribing && (
+                    <span className="text-blue-500">Transcribing...</span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
