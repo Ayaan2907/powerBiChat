@@ -1,17 +1,17 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useRef, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Sparkles, Send, Loader2, Maximize2, Minimize2, X } from "lucide-react"
+import { Sparkles, Send, Loader2, Maximize2, Minimize2, X, Mic, MicOff, Volume2 } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import rehypeRaw from "rehype-raw"
 import rehypeSanitize from "rehype-sanitize"
+import { ReactMediaRecorder } from "react-media-recorder"
 
 interface Message {
   role: "user" | "assistant"
@@ -31,7 +31,11 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
   const [isCapturingPDF, setIsCapturingPDF] = useState(false)
   const [streamingContent, setStreamingContent] = useState("")
   const [isStreaming, setIsStreaming] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const [isTranscribing, setIsTranscribing] = useState(false)
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
 
   // Function to capture viewport as PDF using native browser print
   const captureViewportAsPDF = async (): Promise<Blob | null> => {
@@ -146,6 +150,118 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
     } catch (error) {
       console.error('[Screenshot] Error capturing viewport:', error)
       return null
+    }
+  }
+
+  // Function to transcribe audio using OpenAI Whisper
+  const transcribeAudio = async (audioBlob: Blob): Promise<string> => {
+    try {
+      setIsTranscribing(true)
+      
+      console.log('Transcribing audio blob:', {
+        size: audioBlob.size,
+        type: audioBlob.type
+      })
+
+      // Validate audio blob
+      if (audioBlob.size === 0) {
+        throw new Error('Audio blob is empty')
+      }
+
+      // Convert blob to base64
+      const reader = new FileReader()
+      const base64Audio = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string
+          console.log('Base64 audio length:', result.length)
+          resolve(result)
+        }
+        reader.onerror = (error) => {
+          console.error('FileReader error:', error)
+          reject(error)
+        }
+        reader.readAsDataURL(audioBlob)
+      })
+
+      console.log('Sending transcription request to backend...')
+      const response = await fetch('http://localhost:8000/transcribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ audioData: base64Audio }),
+      })
+
+      console.log('Transcription response status:', response.status)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+      console.log('Transcription response:', data)
+      
+      if (data.error) {
+        throw new Error(data.error)
+      }
+
+      const transcript = data.transcript || ''
+      console.log('Transcript received:', transcript)
+      return transcript
+    } catch (error) {
+      console.error('Transcription error:', error)
+      // Show user-friendly error message
+      alert(`Transcription failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      return ''
+    } finally {
+      setIsTranscribing(false)
+    }
+  }
+
+  // Function to convert text to speech
+  const playTextToSpeech = async (text: string) => {
+    try {
+      setIsPlayingAudio(true)
+      
+      const response = await fetch('http://localhost:8000/text-to-speech', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text, voice: 'alloy' }),
+      })
+
+      const data = await response.json()
+      
+      if (data.error) {
+        throw new Error(data.error)
+      }
+
+      if (data.audioData) {
+        // Stop any currently playing audio
+        if (audioRef.current) {
+          audioRef.current.pause()
+          audioRef.current.currentTime = 0
+        }
+
+        // Create new audio element
+        const audio = new Audio(data.audioData)
+        audioRef.current = audio
+        
+        audio.onended = () => {
+          setIsPlayingAudio(false)
+        }
+        
+        audio.onerror = () => {
+          setIsPlayingAudio(false)
+          console.error('Audio playback error')
+        }
+
+        await audio.play()
+      }
+    } catch (error) {
+      console.error('Text-to-speech error:', error)
+      setIsPlayingAudio(false)
     }
   }
 
@@ -327,6 +443,11 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
                     setMessages((prev) => [...prev, assistantMessage])
                     setStreamingContent("")
                     setIsStreaming(false)
+                    
+                    // Play text-to-speech for the AI response
+                    if (accumulatedContent) {
+                      playTextToSpeech(accumulatedContent)
+                    }
                     return
                   } else if (data.type === 'error') {
                     // Handle error
@@ -602,7 +723,7 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
               )}
             </div>
 
-            {/* Input Area - Responsive & Modern */}
+            {/* Input Area - Responsive & Modern with Voice Controls */}
             <div className="flex-shrink-0 border-t border-border/40 bg-secondary/20 backdrop-blur-sm p-4 space-y-3">
               <div className="relative">
                 <Textarea
@@ -610,38 +731,148 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyPress}
                   placeholder="Ask about your dashboard insights..."
-                  className="min-h-[60px] resize-none rounded-xl border-border/40 bg-background/50 backdrop-blur-sm focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm pr-12"
-                  disabled={isLoading || isStreaming}
+                  className="min-h-[60px] resize-none rounded-xl border-border/40 bg-background/50 backdrop-blur-sm focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm pr-24"
+                  disabled={isLoading || isStreaming || isTranscribing}
                 />
-                <div className="absolute bottom-2 right-2 text-xs text-muted-foreground">
-                  {input.length}/500
+                <div className="absolute bottom-2 right-2 flex items-center gap-2">
+                  <ReactMediaRecorder
+                    audio
+                    askPermissionOnMount
+                    onStart={() => {
+                      console.log('Recording started')
+                      setIsRecording(true)
+                    }}
+                    onStop={async (blobUrl, blob) => {
+                      console.log('Recording stopped', { blobUrl, blob })
+                      setIsRecording(false)
+                      if (blob && blob.size > 0) {
+                        console.log('Processing audio blob:', blob.size, 'bytes')
+                        const transcript = await transcribeAudio(blob)
+                        if (transcript) {
+                          setInput(prev => prev + (prev ? ' ' : '') + transcript)
+                        }
+                      } else {
+                        console.error('No audio blob received or blob is empty')
+                      }
+                    }}
+                    mediaRecorderOptions={{
+                      audioBitsPerSecond: 128000,
+                    }}
+                    render={({ status, startRecording, stopRecording, error }) => {
+                      console.log('ReactMediaRecorder status:', status, 'error:', error)
+                      
+                      // Handle errors in the render function
+                      if (error) {
+                        console.error('ReactMediaRecorder error:', error)
+                        setIsRecording(false)
+                      }
+                      
+                      return (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={isRecording ? "destructive" : "outline"}
+                          className="h-8 w-8 p-0"
+                          onClick={async () => {
+                            if (isRecording) {
+                              console.log('Stopping recording...')
+                              stopRecording()
+                            } else {
+                              console.log('Starting recording...')
+                              try {
+                                await startRecording()
+                              } catch (err) {
+                                console.error('Failed to start recording:', err)
+                                setIsRecording(false)
+                              }
+                            }
+                          }}
+                          disabled={isLoading || isStreaming || isTranscribing || status === 'permission_denied'}
+                          title={
+                            status === 'permission_denied' 
+                              ? "Microphone permission denied" 
+                              : isRecording 
+                                ? "Stop recording" 
+                                : "Start voice recording"
+                          }
+                        >
+                          {isTranscribing ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : isRecording ? (
+                            <MicOff className="h-4 w-4" />
+                          ) : (
+                            <Mic className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )
+                    }}
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    {input.length}/500
+                  </span>
                 </div>
               </div>
-              <Button 
-                onClick={handleAskAI} 
-                disabled={!input.trim() || isLoading || isStreaming} 
-                className="w-full rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all h-11 text-sm font-semibold"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Analyzing...
-                  </>
-                ) : isStreaming ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Streaming...
-                  </>
-                ) : (
-                  <>
-                    <Send className="mr-2 h-4 w-4" />
-                    Ask AI
-                  </>
-                )}
-              </Button>
-              <p className="text-xs text-muted-foreground text-center">
-                Press Enter to send • Shift+Enter for new line
-              </p>
+              
+              <div className="flex gap-2">
+                <Button 
+                  onClick={handleAskAI} 
+                  disabled={!input.trim() || isLoading || isStreaming} 
+                  className="flex-1 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all h-11 text-sm font-semibold"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : isStreaming ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Streaming...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="mr-2 h-4 w-4" />
+                      Ask AI
+                    </>
+                  )}
+                </Button>
+                
+                {/* Audio playback control */}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-11 px-3"
+                  onClick={() => {
+                    if (isPlayingAudio && audioRef.current) {
+                      audioRef.current.pause()
+                      setIsPlayingAudio(false)
+                    }
+                  }}
+                  disabled={!isPlayingAudio}
+                  title="Stop audio playback"
+                >
+                  <Volume2 className={`h-4 w-4 ${isPlayingAudio ? 'animate-pulse' : ''}`} />
+                </Button>
+              </div>
+              
+              <div className="flex justify-between items-center text-xs text-muted-foreground">
+                <span>Press Enter to send • Shift+Enter for new line</span>
+                <div className="flex items-center gap-2">
+                  {isRecording && (
+                    <span className="flex items-center gap-1 text-red-500">
+                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                      Recording...
+                    </span>
+                  )}
+                  {isTranscribing && (
+                    <span className="text-blue-500">Transcribing...</span>
+                  )}
+                  {isPlayingAudio && (
+                    <span className="text-green-500">Playing audio...</span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>

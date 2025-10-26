@@ -316,6 +316,72 @@ INSTRUCTIONS:
         
         return StreamingResponse(error_stream(), media_type="text/event-stream")
 
+@app.post("/transcribe")
+async def transcribe_audio(request: Request):
+    """
+    Transcribe audio using OpenAI Whisper API.
+    Expects: { audioData: string (base64 encoded audio) }
+    """
+    try:
+        data = await request.json()
+        audio_data = data.get("audioData", "")
+        
+        if not audio_data:
+            return {"error": "No audio data provided"}
+        
+        # Remove data URL prefix if present (e.g., "data:audio/webm;base64,")
+        if audio_data.startswith('data:'):
+            audio_data = audio_data.split(',')[1]
+        
+        # Decode base64 audio data
+        audio_bytes = base64.b64decode(audio_data)
+        
+        # Create a temporary file-like object for the audio
+        audio_file = io.BytesIO(audio_bytes)
+        audio_file.name = "audio.webm"  # Whisper needs a filename with extension
+        
+        # Call OpenAI Whisper API
+        transcript = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=audio_file,
+            response_format="text"
+        )
+        
+        return {"transcript": transcript}
+        
+    except Exception as e:
+        return {"error": f"Transcription failed: {str(e)}"}
+
+@app.post("/text-to-speech")
+async def text_to_speech(request: Request):
+    """
+    Convert text to speech using OpenAI TTS API.
+    Expects: { text: string, voice?: string }
+    """
+    try:
+        data = await request.json()
+        text = data.get("text", "")
+        voice = data.get("voice", "alloy")  # Default voice
+        
+        if not text:
+            return {"error": "No text provided"}
+        
+        # Call OpenAI TTS API
+        response = client.audio.speech.create(
+            model="tts-1",
+            voice=voice,
+            input=text,
+            response_format="mp3"
+        )
+        
+        # Convert audio to base64
+        audio_data = base64.b64encode(response.content).decode('utf-8')
+        
+        return {"audioData": f"data:audio/mp3;base64,{audio_data}"}
+        
+    except Exception as e:
+        return {"error": f"Text-to-speech failed: {str(e)}"}
+
 @app.get("/health")
 async def health():
     """Health check endpoint"""
