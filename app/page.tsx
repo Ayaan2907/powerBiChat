@@ -249,7 +249,7 @@ export default function Page() {
         {/* Power BI Report - Responsive */}
         {/* PowerBI Embed - Full Width */}
         <div className="flex-1 overflow-hidden">
-          <div className="h-full border-border/40 bg-card/30 shadow-xl overflow-hidden animate-fade-in">
+          <div className="h-full overflow-hidden animate-fade-in">
             <PowerBIEmbed
               reportId={powerBIConfig.reportId}
               embedUrl={powerBIConfig.embedUrl}

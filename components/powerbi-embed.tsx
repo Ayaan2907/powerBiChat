@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Card } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 
@@ -152,7 +151,7 @@ export function PowerBIEmbed({ reportId, embedUrl, accessToken, onDataExport }: 
             filters: { visible: true },
             pageNavigation: { visible: true },
           },
-          background: models.BackgroundType.Transparent,
+          background: models.BackgroundType.Default,
         },
       }
 
@@ -332,7 +331,7 @@ export function PowerBIEmbed({ reportId, embedUrl, accessToken, onDataExport }: 
   }, [report, onDataExport])
 
   return (
-    <Card className="h-full overflow-hidden bg-white">
+    <div className="h-full overflow-hidden border border-border/40 rounded-xl shadow-sm">
       {error && (
         <Alert variant="destructive" className="m-4">
           <AlertCircle className="h-4 w-4" />
@@ -347,7 +346,7 @@ export function PowerBIEmbed({ reportId, embedUrl, accessToken, onDataExport }: 
       )}
 
       {isLoading && !error && (
-        <div className="flex items-center justify-center h-full">
+        <div className="flex items-center justify-center h-full bg-background">
           <div className="text-center space-y-2">
             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
             <p className="text-sm text-muted-foreground">Loading Power BI report...</p>
@@ -356,6 +355,6 @@ export function PowerBIEmbed({ reportId, embedUrl, accessToken, onDataExport }: 
       )}
 
       <div ref={embedContainer} className="w-full h-full" style={{ minHeight: "600px" }} />
-    </Card>
+    </div>
   )
 }
