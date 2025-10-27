@@ -2,8 +2,6 @@
 
 An intelligent Power BI analytics dashboard that uses AI to provide insights on your current view. The chatbot analyzes only the visible data in your reports without accessing backend formulas or the full dataset.
 
-## 🚀 Quick Start
-
 ## 🚀 Quick Start Guide
 
 ### Step 1: Get the Code
