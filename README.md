@@ -4,43 +4,75 @@ An intelligent Power BI analytics dashboard that uses AI to provide insights on 
 
 ## 🚀 Quick Start
 
-### 1. One-Command Setup
+## 🚀 Quick Start Guide
 
-#### 🐧 **macOS/Linux**
+### Step 1: Get the Code
+First, download this project to your computer:
+```bash
+git clone https://github.com/Ayaan2907/powerBiChat
+cd powerbi-app-vercel-v0
+```
+> If you don't have git, download the zip file and extract.  
+### Step 2: Copy Environment Settings
+Copy the example environment file and customize it with your settings:
+```bash
+cp .env.example .env
+```
+Then open the `.env` file and add your Power BI and OpenAI credentials.
+
+### Step 3: Run the App
+
+#### 🍎 **For Mac Users**
+Open Terminal and run this single command:
 ```bash
 pnpm install && python -m venv .venv && source .venv/bin/activate && cd backend && pip install -r requirements.txt && cd .. && (pnpm dev &) && cd backend && uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-#### 🪟 **Windows**
+#### 🪟 **For Windows Users**
+Open Command Prompt and run this single command:
 ```cmd
 pnpm install && python -m venv .venv && .venv\Scripts\activate && cd backend && pip install -r requirements.txt && cd .. && start /b pnpm dev && cd backend && uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### 2. Step-by-Step (if you prefer)
+### Step 4: Open Your App
+After running the command, wait a moment for everything to start, then open your web browser and go to:
+- **Your App**: http://localhost:3000
 
-```bash
-# 1. Setup
-pnpm install
-python -m venv .venv
+That's it! Your Power BI app should now be running.
 
-# 2. Activate environment
-source .venv/bin/activate    # macOS/Linux
-# OR
-.venv\Scripts\activate       # Windows
+---
 
-# 3. Install backend
-cd backend && pip install -r requirements.txt && cd ..
+### 🔧 Alternative: Step-by-Step Setup
+If you prefer to run commands one at a time:
 
-# 4. Start both servers
-pnpm dev                     # Frontend (Terminal 1)
-cd backend && uvicorn main:app --reload  # Backend (Terminal 2)
-```
+1. **Install dependencies:**
+   ```bash
+   pnpm install
+   ```
 
-### 3. Access Your App
+2. **Set up Python environment:**
+   ```bash
+   python -m venv .venv
+   ```
 
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:8000
-- **API Docs**: http://localhost:8000/docs
+3. **Activate the environment:**
+   - **Mac/Linux:** `source .venv/bin/activate`
+   - **Windows:** `.venv\Scripts\activate`
+
+4. **Install backend dependencies:**
+   ```bash
+   cd backend
+   pip install -r requirements.txt
+   cd ..
+   ```
+
+5. **Start the app (open 2 terminals):**
+   - **Terminal 1:** `pnpm dev`
+   - **Terminal 2:** `cd backend && uvicorn main:app --reload`
+
+### 📱 Access Points
+- **Your App**: http://localhost:3000
+- **API Documentation**: http://localhost:8000/docs
 
 ### 5. Authentication
 
@@ -82,35 +114,6 @@ OPENAI_API_KEY=sk-proj-your-openai-api-key-here
 
 ---
 
-## 🔐 Clerk Authentication Integration
-
-This project includes a complete Clerk authentication system with the following features:
-
-### **What's Implemented:**
-- ✅ **User Authentication** - Sign in/sign up with email and password
-- ✅ **Route Protection** - Middleware protects all routes except public ones
-- ✅ **User Management** - UserButton component for profile and sign out
-- ✅ **Session Management** - Automatic session handling and persistence
-- ✅ **Responsive UI** - Custom styled authentication pages
-
-### **Files Added/Modified:**
-- **`middleware.ts`** - Route protection using `clerkMiddleware`
-- **`app/layout.tsx`** - Wrapped with `ClerkProvider`
-- **`app/page.tsx`** - Added user authentication checks and UserButton
-- **`app/sign-in/[[...sign-in]]/page.tsx`** - Custom sign-in page
-- **`app/sign-up/[[...sign-up]]/page.tsx`** - Custom sign-up page
-- **`.env.local`** - Added Clerk environment variables
-
-### **Protected Routes:**
-- **Dashboard** (`/`) - Requires authentication
-- **All other routes** - Protected by default
-
-### **Public Routes:**
-- **Sign In** (`/sign-in`) - Authentication page
-- **Sign Up** (`/sign-up`) - Registration page
-- **API Webhooks** (`/api/webhooks/*`) - For Clerk webhooks
-- **Health Check** (`/api/health`) - Backend health endpoint
-
 ### **User Experience:**
 1. **First Visit** → Redirected to sign-in page
 2. **After Sign In** → Access to Power BI dashboard
@@ -121,55 +124,11 @@ This project includes a complete Clerk authentication system with the following 
 
 ## Features
 
-- **🔐 Clerk Authentication** - Secure user authentication and session management
 - **📊 Power BI Embedded Reports** - Seamlessly embed your Power BI reports
 - **🤖 AI-Powered Insights** - Ask questions about your current view and get intelligent analysis
 - **🔄 Automatic Token Generation** - No manual token copying required
 - **🎯 Context-Aware** - Automatically includes active filters and slicers in analysis
 - **🔒 Secure** - Only analyzes visible data, never accesses your full dataset or DAX formulas
-- **⚡ Real-time** - Export and analyze data from any visual on demand
-- **🌐 CORS Enabled** - Backend configured for cross-origin requests
-
-## Quick Start
-
-### 1. Install Frontend Dependencies
-
-\`\`\`bash
-npm install
-\`\`\`
-
-### 2. Configure Environment Variables
-
-Add these to the **Vars section** in the v0 sidebar:
-
-**Azure AD Credentials (for automatic token generation):**
-\`\`\`
-POWER_BI_CLIENT_ID=your-azure-ad-client-id
-POWER_BI_CLIENT_SECRET=your-azure-ad-client-secret
-POWER_BI_TENANT_ID=your-azure-ad-tenant-id
-\`\`\`
-
-**Power BI Report Configuration:**
-\`\`\`
-POWERBI_REPORT_ID=your-report-id
-POWERBI_EMBED_URL=https://app.powerbi.com/reportEmbed?reportId=xxx&groupId=xxx
-POWERBI_DATASET_ID=your-dataset-id
-POWERBI_WORKSPACE_ID=your-workspace-id
-\`\`\`
-
-**OpenAI API Key:**
-\`\`\`
-OPENAI_API_KEY=sk-proj-xxxxx
-\`\`\`
-
-### 3. Start the Application
-
-\`\`\`bash
-npm run dev
-\`\`\`
-
-Application will be available at `http://localhost:3000`
-
 ## Setting Up Azure AD for Power BI Embedding
 
 ### Step 1: Register an Azure AD Application
@@ -269,76 +228,6 @@ Before running the application, ensure:
    - Service principal has Member or Admin role on the workspace
    - The report is published to a workspace
 
-## How It Works
-
-1. **User Views Report** - Power BI report loads with all interactive features
-2. **User Asks Question** - Types a question in the AI chat sidebar
-3. **Data Export** - System exports only the currently visible visual data (what you see on screen)
-4. **AI Analysis** - Sends the data snapshot + question to OpenAI GPT-4
-5. **Insights Returned** - AI provides context-aware insights based on the visible data
-
-## Architecture
-
-\`\`\`
-┌─────────────────┐         ┌──────────────────┐         ┌─────────────┐
-│   Next.js       │────────▶│  Next.js API     │────────▶│  OpenAI     │
-│   Frontend      │         │  Routes          │         │  API        │
-│                 │         │                  │         │             │
-│ - Power BI      │         │ - /api/powerbi/  │         │ - GPT-4     │
-│   Embed         │         │   config         │         │             │
-│ - AI Chat UI    │         │ - /api/analyze   │    ┌────┤             │
-│ - Data Export   │◀────────│                  │    │    │             │
-└─────────────────┘         └──────────────────┘    │    └─────────────┘
-                                     │              │
-                                     │              │
-                                     ▼              │
-                            ┌──────────────────┐   │
-                            │  Azure AD +      │───┘
-                            │  Power BI API    │
-                            │                  │
-                            │ - Token Gen      │
-                            │ - Embed Tokens   │
-                            └──────────────────┘
-\`\`\`
-
-## Project Structure
-
-\`\`\`
-.
-├── app/
-│   ├── page.tsx                    # Main dashboard page (with auth)
-│   ├── layout.tsx                  # Root layout with ClerkProvider
-│   ├── globals.css                 # Global styles
-│   ├── sign-in/
-│   │   └── [[...sign-in]]/
-│   │       └── page.tsx            # Clerk sign-in page
-│   ├── sign-up/
-│   │   └── [[...sign-up]]/
-│   │       └── page.tsx            # Clerk sign-up page
-│   └── api/
-│       ├── powerbi/
-│       │   └── config/
-│       │       └── route.ts        # Power BI config API
-│       └── analyze/
-│           └── route.ts            # AI analysis API
-├── backend/
-│   ├── main.py                     # FastAPI backend with CORS
-│   ├── requirements.txt            # Python dependencies
-│   └── test_cors.py               # CORS testing script
-├── components/
-│   ├── powerbi-embed.tsx           # Power BI embed component
-│   ├── ai-chat.tsx                 # AI chat interface
-│   └── ui/                         # Shadcn/ui components
-├── lib/
-│   ├── powerbi-types.ts            # TypeScript types
-│   ├── powerbi-auth.ts             # Token generation logic
-│   └── utils.ts                    # Utility functions
-├── middleware.ts                   # Clerk authentication middleware
-├── .env.local                      # Environment variables
-├── .env.example                    # Environment template
-└── README.md
-\`\`\`
-
 ## API Endpoints
 
 ### Frontend API Routes
@@ -350,57 +239,6 @@ Before running the application, ensure:
   - Body: `{ question: string, visibleData: string, filters?: string }`
   - Returns: `{ answer: string }`
 
-## Troubleshooting
-
-### "Missing Azure AD credentials" Error
-
-- Verify you've set `POWER_BI_CLIENT_ID`, `POWER_BI_CLIENT_SECRET`, and `POWER_BI_TENANT_ID`
-- Check that the client secret hasn't expired
-- Ensure the values don't have extra spaces or quotes
-
-### "Failed to acquire Azure AD token" Error
-
-- Verify your Azure AD app has the correct API permissions
-- Ensure admin consent has been granted
-- Check that the tenant ID is correct
-
-### "Failed to generate embed token" Error
-
-- Verify the service principal is added to the workspace
-- Ensure the service principal has Member or Admin role
-- Check that `POWERBI_REPORT_ID` and `POWERBI_DATASET_ID` are correct
-- Verify the report and dataset are in the same workspace
-
-### Power BI Report Not Loading
-
-- Check browser console for detailed error messages
-- Verify the embed URL format is correct
-- Ensure the report is published and accessible
-- Check that export data permissions are enabled
-
-### AI Chat Not Working
-
-- Verify `OPENAI_API_KEY` is set correctly
-- Check browser console for API errors
-- Ensure Power BI report has loaded successfully
-- Try selecting a different visual with data
-
-### Data Export Fails
-
-- Verify "Export data" permissions are enabled in report settings
-- Ensure you're viewing a valid visual (not a slicer or text box)
-- Check that the visual has data to export
-- Try clicking on the visual first to select it
-
-## Security Notes
-
-- Never commit `.env` files to version control
-- Rotate client secrets regularly (before expiration)
-- Use separate Azure AD apps for dev/staging/production
-- Implement proper authentication for your web app
-- Consider rate limiting on API endpoints
-- Embed tokens are short-lived (1 hour) and auto-refresh
-
 ## Token Lifecycle
 
 The application automatically handles token generation and refresh:
@@ -409,34 +247,3 @@ The application automatically handles token generation and refresh:
 2. **Token Expiration**: Tokens expire after 1 hour
 3. **Auto-Refresh**: Frontend can request new tokens as needed
 4. **No Manual Copying**: All token generation is programmatic
-
-## Development
-
-### Adding New Features
-
-1. **Custom Prompts** - Modify the prompt in `app/api/analyze/route.ts`
-2. **Visual Selection** - Update logic in `components/powerbi-embed.tsx`
-3. **Chat History** - Extend the messages state in `components/ai-chat.tsx`
-4. **Styling** - Customize colors in `app/globals.css`
-
-### Testing Token Generation
-
-\`\`\`bash
-# Check if tokens are being generated
-# Look for these logs in the browser console:
-# "[v0] API: Generating Power BI embed token..."
-# "[v0] API: Successfully generated embed token"
-# "[v0] API: Token expires at: [timestamp]"
-\`\`\`
-
-## License
-
-MIT
-
-## Support
-
-For issues or questions:
-- Check the troubleshooting section above
-- Review [Power BI Embedded documentation](https://learn.microsoft.com/en-us/power-bi/developer/embedded/)
-- Check [Azure AD app registration guide](https://learn.microsoft.com/en-us/azure/active-directory/develop/quickstart-register-app)
-- Verify [OpenAI API status](https://status.openai.com/)
