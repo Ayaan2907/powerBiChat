@@ -28,12 +28,12 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000", 
         "http://localhost:3001",
-        "https://*.ngrok.io",
-        "https://*.ngrok-free.app",
-        "https://*.vercel.app",
-        "https://*.netlify.app"
+        # "https://*.ngrok.io",
+        # "https://*.ngrok-free.app",
+        # "https://*.vercel.app",
+        # "https://*.netlify.app"
+        "*"  # Allow all origins for ngrok and other external services FIXME: Remove this in production
     ],
-    allow_origin_regex=r"https://.*\.ngrok\.io|https://.*\.ngrok-free\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
