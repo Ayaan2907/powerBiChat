@@ -7,20 +7,24 @@ import { AIChat } from "@/components/ai-chat"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, Loader2, User } from "lucide-react"
+import { AlertCircle, Loader2, User, Printer } from "lucide-react"
 import { usePowerBIToken } from "@/hooks/use-powerbi-token"
 
 export default function Page() {
   const { isLoaded, isSignedIn, user } = useUser()
   const { config: powerBIConfig, isLoading, error } = usePowerBIToken()
 
+  const handlePrint = () => {
+    window.print()
+  }
+
   // Show loading while Clerk is initializing
   if (!isLoaded || isLoading) {
     return (
-      <main className="min-h-screen bg-background flex items-center justify-center">
+      <main className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--brand-navy)' }}>
         <div className="text-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-          <p className="text-sm text-muted-foreground">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto" style={{ color: 'var(--brand-teal)' }} />
+          <p className="text-sm" style={{ color: 'var(--brand-gray-400)' }}>
             {!isLoaded ? "Loading authentication..." : "Loading Power BI configuration..."}
           </p>
         </div>
@@ -31,14 +35,14 @@ export default function Page() {
   // Redirect to sign-in if not authenticated (this should be handled by middleware, but as a fallback)
   if (!isSignedIn) {
     return (
-      <main className="min-h-screen bg-background flex items-center justify-center">
+      <main className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--brand-navy)' }}>
         <div className="text-center space-y-4">
-          <User className="h-12 w-12 mx-auto text-muted-foreground" />
+          <User className="h-12 w-12 mx-auto" style={{ color: 'var(--brand-gray-400)' }} />
           <div>
-            <h2 className="text-xl font-semibold">Authentication Required</h2>
-            <p className="text-sm text-muted-foreground mt-2">Please sign in to access the Power BI dashboard</p>
+            <h2 className="text-xl font-semibold" style={{ color: 'white' }}>Authentication Required</h2>
+            <p className="text-sm mt-2" style={{ color: 'var(--brand-gray-400)' }}>Please sign in to access the Power BI dashboard</p>
           </div>
-          <Button asChild>
+          <Button asChild style={{ backgroundColor: 'var(--brand-teal)', color: 'var(--brand-navy)', border: 'none' }}>
             <a href="/sign-in">Sign In</a>
           </Button>
         </div>
@@ -148,10 +152,28 @@ export default function Page() {
 
   // Main dashboard with Power BI embed and AI chat
   return (
-    <main className="h-screen flex flex-col bg-background">
+    <main className="h-screen flex flex-col" style={{ backgroundColor: 'var(--brand-navy)' }}>
       {/* Minimal user info area */}
-      <div className="absolute top-4 right-4 z-50 flex items-center gap-3 bg-background/80 backdrop-blur-sm px-3 py-2 rounded-lg border border-border/40">
-        <span className="text-sm text-foreground">
+      <div className="absolute top-4 right-4 z-50 flex items-center gap-3 backdrop-blur-sm px-3 py-2 rounded-lg border" style={{ backgroundColor: 'var(--brand-navy)', borderColor: 'var(--brand-teal)', opacity: 0.95 }}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handlePrint}
+          className="h-8 w-8 p-0 print-hidden"
+          style={{ color: 'var(--brand-gray-400)' }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = 'var(--brand-teal)'
+            e.currentTarget.style.color = 'var(--brand-navy)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent'
+            e.currentTarget.style.color = 'var(--brand-gray-400)'
+          }}
+          title="Print Dashboard"
+        >
+          <Printer className="h-4 w-4" />
+        </Button>
+        <span className="text-sm" style={{ color: 'white' }}>
           {user?.firstName || user?.emailAddresses[0]?.emailAddress || 'User'}
         </span>
         <UserButton 

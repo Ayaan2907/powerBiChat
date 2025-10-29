@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Badge } from "@/components/ui/badge"
 import { Sparkles, Send, Loader2, Maximize2, Minimize2, X, Mic, MicOff, Volume2, Pause, Play, Trash2 } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -690,7 +691,7 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
           <Button
             onClick={handleCopilotActivation}
             disabled={isCapturingPDF}
-            className="relative h-60 w-14 rounded-l-2xl rounded-r-none bg-gradient-to-b from-secondary to-secondary/80 hover:from-secondary/90 hover:to-secondary/70 text-primary shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105 border-2 border-r-0 border-primary/20 flex flex-col items-center justify-between py-3 disabled:opacity-50 "
+            className="relative h-50 w-14 rounded-l-2xl rounded-r-none bg-gradient-to-b from-secondary to-secondary/80 hover:from-secondary/90 hover:to-secondary/70 text-primary shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-105 border-2 border-r-0 border-primary/20 flex flex-col items-center justify-between py-3 disabled:opacity-50 "
             style={{
               boxShadow: '-10px 0 40px rgba(0, 0, 0, 0.3), 0 0 20px rgba(var(--primary), 0.4)',
             }}
@@ -701,18 +702,18 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
               <img 
                 src="/advancelq-icon.svg" 
                 alt="AdvancelQ" 
-                className="h-5 w-5 flex-shrink-0 mt-1"
+                className="h-10 w-10 flex-shrink-0 mt-1"
               />
             )}
             
             <div className="flex flex-col items-center justify-center flex-1">
-              <div className="writing-mode-vertical text-sm font-semibold tracking-wider" style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}>
-                {isCapturingPDF ? 'CAPTURING...' : 'REPORT COPILOT'}
+              <div className="writing-mode-vertical text-md font-semibold tracking-wider" style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}>
+                {isCapturingPDF ? 'CAPTURING...' : 'Ask ARIA'}
               </div>
             </div>
             
             <div className="flex items-center justify-center mb-2">
-              <div className="text-sm opacity-60 font-mono px-1 py-0.5 bg-black/20 rounded text-center">
+              <div className="text-lg opacity-60 font-mono px-1 py-0.5 bg-black/20 rounded text-center">
                 ^K
               </div>
             </div>
@@ -723,15 +724,24 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
       {/* Chat Overlay - Fixed Right Side */}
       {isExpanded && (
         <div className="fixed inset-0 z-50 flex items-center justify-end p-4 animate-fade-in">
-          <div className="w-full max-w-md h-[90vh] md:h-[80vh] lg:max-w-lg xl:max-w-xl bg-card/95 backdrop-blur-md border border-border/40 rounded-l-2xl shadow-2xl overflow-hidden animate-slide-in flex flex-col">
+          <div className="w-full max-w-md h-[90vh] md:h-[80vh] lg:max-w-lg xl:max-w-xl backdrop-blur-md border border-border/40 rounded-l-2xl shadow-2xl overflow-hidden animate-slide-in flex flex-col" style={{ backgroundColor: 'rgba(10, 10, 36, 0.75)' }}>
             {/* Header - AdvancelQ.ai Branded */}
-            <div className="border-b border-border/40 bg-gradient-to-r from-secondary/50 to-secondary/30 px-4 py-3">
+            <div className="border-b px-4 py-3" style={{ borderColor: 'var(--brand-teal)', backgroundColor: 'var(--brand-navy)' }}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Sparkles className="h-5 w-5 text-primary" />
+                  <Sparkles className="h-5 w-5" style={{ color: 'var(--brand-teal)' }} />
                   <div>
-                    <h3 className="text-base font-semibold text-foreground">AI Insights</h3>
-                    <p className="text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-semibold" style={{ color: 'white' }}>ARIA Insights</h3>
+                      <Badge 
+                        variant="secondary" 
+                        className="text-[10px] px-1.5 py-0.5 font-medium"
+                        style={{ backgroundColor: 'var(--brand-teal)', color: 'var(--brand-navy)', border: 'none' }}
+                      >
+                        BETA
+                      </Badge>
+                    </div>
+                    <p className="text-xs" style={{ color: 'var(--brand-gray-400)' }}>
                       Powered by AdvancelQ.ai
                     </p>
                   </div>
@@ -739,7 +749,16 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-colors" 
+                  className="h-8 w-8 transition-colors" 
+                  style={{ color: 'var(--brand-gray-400)' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--brand-teal)'
+                    e.currentTarget.style.color = 'var(--brand-navy)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent'
+                    e.currentTarget.style.color = 'var(--brand-gray-400)'
+                  }}
                   onClick={() => setIsExpanded(false)}
                 >
                   <X className="h-4 w-4" />
@@ -760,41 +779,54 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
             >
               {messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center text-center space-y-6 animate-slide-in py-8">
-                  <Sparkles className="h-12 w-12 text-primary/30" />
+                  <Sparkles className="h-12 w-12" style={{ color: 'var(--brand-teal)', opacity: 0.6 }} />
                   <div className="space-y-2">
-                    <p className="text-sm font-semibold text-foreground">
+                    <p className="text-sm font-semibold" style={{ color: 'white' }}>
                       Start a conversation
                     </p>
-                    <p className="text-xs text-muted-foreground max-w-xs">
+                    <p className="text-xs max-w-xs" style={{ color: 'var(--brand-gray-400)' }}>
                       Ask about trends, patterns, or insights in your current Power BI visual
                     </p>
                   </div>
                   
                   {/* Preset Message Buttons */}
                   <div className="w-full max-w-md space-y-3">
-                    <p className="text-xs font-semibold text-foreground mb-3">Quick start with these common queries:</p>
+                    <p className="text-xs font-semibold mb-3" style={{ color: 'white' }}>Quick start with these common queries:</p>
                     <div className="grid grid-cols-2 gap-2">
                       {presetMessages.map((preset, index) => (
                         <Button
                           key={index}
                           variant="outline"
                           size="sm"
-                          className="h-auto p-3 text-left flex items-center gap-2 hover:bg-primary/5 hover:border-primary/30 transition-all group"
+                          className="h-auto p-3 text-left flex items-center gap-2 transition-all group"
+                          style={{ 
+                            backgroundColor: 'transparent', 
+                            borderColor: 'var(--brand-teal)', 
+                            color: 'white' 
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = 'var(--brand-teal)'
+                            e.currentTarget.style.color = 'var(--brand-navy)'
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent'
+                            e.currentTarget.style.color = 'white'
+                          }}
                           onClick={() => handlePresetMessage(preset.message)}
                           disabled={isLoading || isStreaming || isTranscribing}
                         >
                           <span className="text-base group-hover:scale-110 transition-transform">
                             {preset.icon}
                           </span>
-                          <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors">
+                          <span className="text-xs font-medium transition-colors">
                             {preset.title}
                           </span>
                         </Button>
                       ))}
                     </div>
                     
-                    <div className="pt-2 border-t border-border/30">
-                      <p className="text-xs text-muted-foreground">
+                    <div className="pt-2" style={{ borderTop: '1px solid var(--brand-teal)', opacity: 0.3 }}>
+                      <p className="text-xs" style={{ color: 'var(--brand-gray-400)' }}>
                         Or type your own question below
                       </p>
                     </div>
@@ -810,9 +842,13 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
                       <div
                         className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-md transition-all hover:shadow-lg ${
                           message.role === "user" 
-                            ? "bg-primary text-primary-foreground" 
-                            : "bg-secondary/70 text-foreground backdrop-blur-sm border border-border/30"
+                            ? "" 
+                            : "backdrop-blur-sm border"
                         }`}
+                        style={message.role === "user" 
+                          ? { backgroundColor: 'var(--brand-teal)', color: 'var(--brand-navy)' }
+                          : { backgroundColor: 'var(--brand-gray-800)', color: 'white', borderColor: 'var(--brand-teal)', borderWidth: '1px' }
+                        }
                       >
                         {message.role === "user" ? (
                           <p className="text-sm whitespace-pre-wrap leading-relaxed">
@@ -897,17 +933,17 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
 
                   {isLoading && (
                     <div className="flex justify-start animate-slide-in">
-                      <div className="bg-secondary/70 backdrop-blur-sm border border-border/30 rounded-2xl px-4 py-3 shadow-md flex items-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                        <span className="text-xs text-muted-foreground">Analyzing your data...</span>
+                      <div className="backdrop-blur-sm border rounded-2xl px-4 py-3 shadow-md flex items-center gap-2" style={{ backgroundColor: 'var(--brand-gray-800)', borderColor: 'var(--brand-teal)', borderWidth: '1px' }}>
+                        <Loader2 className="h-4 w-4 animate-spin" style={{ color: 'var(--brand-teal)' }} />
+                        <span className="text-xs" style={{ color: 'var(--brand-gray-400)' }}>Analyzing your data...</span>
                       </div>
                     </div>
                   )}
 
                   {isStreaming && streamingContent && (
                     <div className="flex justify-start animate-slide-in">
-                      <div className="max-w-[85%] bg-secondary/70 text-foreground backdrop-blur-sm border border-border/30 rounded-2xl px-4 py-3 shadow-md transition-all hover:shadow-lg">
-                        <div className="markdown-content text-sm">
+                      <div className="max-w-[85%] backdrop-blur-sm border rounded-2xl px-4 py-3 shadow-md transition-all hover:shadow-lg" style={{ backgroundColor: 'var(--brand-gray-800)', borderColor: 'var(--brand-teal)', borderWidth: '1px' }}>
+                        <div className="markdown-content text-sm" style={{ color: 'white' }}>
                           <ReactMarkdown
                             remarkPlugins={[remarkGfm]}
                             rehypePlugins={[rehypeRaw, rehypeSanitize]}
@@ -919,25 +955,25 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
                               ul: ({ ...props }) => <ul className="list-disc pl-4 my-2 space-y-1" {...props} />,
                               ol: ({ ...props }) => <ol className="list-decimal pl-4 my-2 space-y-1" {...props} />,
                               li: ({ ...props }) => <li className="my-1" {...props} />,
-                              a: ({ ...props }) => <a className="text-primary underline hover:text-primary/80" {...props} />,
+                              a: ({ ...props }) => <a className="underline" style={{ color: 'var(--brand-teal)' }} {...props} />,
                               code: ({ className, children, ...props }) => {
                                 const isInline = !className?.includes('language-')
                                 return isInline ? 
-                                  <code className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-xs font-mono" {...props}>{children}</code> : 
-                                  <code className="block bg-secondary/50 p-3 rounded-lg text-xs font-mono my-2 overflow-x-auto border border-border/30" {...props}>{children}</code>
+                                  <code className="px-1.5 py-0.5 rounded text-xs font-mono" style={{ backgroundColor: 'var(--brand-gray-700)', color: 'var(--brand-teal)' }} {...props}>{children}</code> : 
+                                  <code className="block p-3 rounded-lg text-xs font-mono my-2 overflow-x-auto border" style={{ backgroundColor: 'var(--brand-gray-700)', borderColor: 'var(--brand-teal)' }} {...props}>{children}</code>
                               },
-                              blockquote: ({ ...props }) => <blockquote className="border-l-4 border-primary/50 pl-3 italic my-2 text-muted-foreground" {...props} />,
+                              blockquote: ({ ...props }) => <blockquote className="border-l-4 pl-3 italic my-2" style={{ borderColor: 'var(--brand-teal)', color: 'var(--brand-gray-400)' }} {...props} />,
                               table: ({ ...props }) => <table className="border-collapse w-full my-3 text-xs" {...props} />,
-                              th: ({ ...props }) => <th className="border border-border/40 px-2 py-1.5 bg-secondary/50 font-semibold" {...props} />,
-                              td: ({ ...props }) => <td className="border border-border/40 px-2 py-1.5" {...props} />,
+                              th: ({ ...props }) => <th className="border px-2 py-1.5 font-semibold" style={{ borderColor: 'var(--brand-teal)', backgroundColor: 'var(--brand-gray-700)' }} {...props} />,
+                              td: ({ ...props }) => <td className="border px-2 py-1.5" style={{ borderColor: 'var(--brand-teal)' }} {...props} />,
                             }}
                           >
                             {streamingContent}
                           </ReactMarkdown>
                         </div>
                         <div className="flex items-center gap-2 mt-1.5">
-                          <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                          <span className="text-xs opacity-60 font-mono">Streaming...</span>
+                          <Loader2 className="h-3 w-3 animate-spin" style={{ color: 'var(--brand-teal)' }} />
+                          <span className="text-xs opacity-60 font-mono" style={{ color: 'var(--brand-gray-400)' }}>Streaming...</span>
                         </div>
                       </div>
                     </div>
@@ -947,14 +983,27 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
             </div>
 
             {/* Input Area - Responsive & Modern with Voice Controls */}
-            <div className="flex-shrink-0 border-t border-border/40 bg-secondary/20 backdrop-blur-sm p-4 space-y-3">
+            <div className="flex-shrink-0 border-t backdrop-blur-sm p-4 space-y-3" style={{ borderColor: 'var(--brand-teal)', backgroundColor: 'var(--brand-navy)' }}>
               <div className="relative">
                 <Textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyPress}
                   placeholder="Ask about your dashboard insights..."
-                  className="min-h-[60px] resize-none rounded-xl border-border/40 bg-background/50 backdrop-blur-sm focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm pr-24"
+                  className="min-h-[60px] resize-none rounded-xl backdrop-blur-sm transition-all text-sm pr-24"
+                  style={{ 
+                    backgroundColor: 'var(--brand-gray-800)', 
+                    borderColor: 'var(--brand-teal)', 
+                    color: 'white',
+                    borderWidth: '1px'
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--brand-teal)'
+                    e.currentTarget.style.boxShadow = '0 0 0 2px rgba(var(--brand-teal-rgb), 0.2)'
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.boxShadow = 'none'
+                  }}
                   disabled={isLoading || isStreaming || isTranscribing}
                 />
                 <div className="absolute bottom-2 right-2 flex items-center gap-2">
@@ -994,8 +1043,26 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
                         <Button
                           type="button"
                           size="sm"
-                          variant={isRecording ? "destructive" : "outline"}
+                          variant="ghost"
                           className="h-8 w-8 p-0"
+                          style={{
+                            backgroundColor: isRecording ? 'var(--brand-red)' : 'transparent',
+                            color: isRecording ? 'white' : 'var(--brand-gray-400)',
+                            borderColor: isRecording ? 'var(--brand-red)' : 'var(--brand-teal)',
+                            borderWidth: '1px'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isRecording && !e.currentTarget.disabled) {
+                              e.currentTarget.style.backgroundColor = 'var(--brand-teal)'
+                              e.currentTarget.style.color = 'var(--brand-navy)'
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isRecording) {
+                              e.currentTarget.style.backgroundColor = 'transparent'
+                              e.currentTarget.style.color = 'var(--brand-gray-400)'
+                            }
+                          }}
                           onClick={async () => {
                             if (isRecording) {
                               console.log('Stopping recording...')
@@ -1030,7 +1097,7 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
                       )
                     }}
                   />
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-xs" style={{ color: 'var(--brand-gray-400)' }}>
                     {input.length}/500
                   </span>
                 </div>
@@ -1040,7 +1107,20 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
                 <Button 
                   onClick={handleAskAI} 
                   disabled={!input.trim() || isLoading || isStreaming} 
-                  className="flex-1 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all h-11 text-sm font-semibold"
+                  className="flex-1 rounded-xl shadow-lg hover:shadow-xl transition-all h-11 text-sm font-semibold disabled:opacity-50"
+                  style={{
+                    backgroundColor: 'var(--brand-teal)',
+                    color: 'var(--brand-navy)',
+                    border: 'none'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!e.currentTarget.disabled) {
+                      e.currentTarget.style.opacity = '0.9'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.opacity = '1'
+                  }}
                 >
                   {isLoading ? (
                     <>
@@ -1055,30 +1135,45 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
                   ) : (
                     <>
                       <Send className="mr-2 h-4 w-4" />
-                      Ask AI
+                      Ask ARIA
                     </>
                   )}
                 </Button>
               </div>
               
-              <div className="flex justify-between items-center text-xs text-muted-foreground">
-                <span>Press Enter to send • Shift+Enter for new line</span>
-                <div className="flex items-center gap-2">
+              {/* Transcription Status */}
+              {isTranscribing && (
+                <div className="flex items-center justify-center gap-2 text-xs animate-pulse" style={{ color: 'var(--brand-gray-400)' }}>
+                  <div className="flex gap-1">
+                    <div className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: 'var(--brand-red)' }}></div>
+                    <div className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: 'var(--brand-red)', animationDelay: '0.1s' }}></div>
+                    <div className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: 'var(--brand-red)', animationDelay: '0.2s' }}></div>
+                  </div>
+                  <span className="font-medium">Listening...</span>
+                </div>
+              )}
+              
+              {/* Help Text */}
+              <div className="text-xs text-center space-y-1" style={{ color: 'var(--brand-gray-400)' }}>
+                <div>Press Enter to send • Shift+Enter for new line</div>
+                <div className="flex items-center justify-center gap-1">
+                  <Mic className="h-3 w-3" />
+                  <span>Click microphone for voice input</span>
+                </div>
+                <div className="flex items-center justify-center gap-2">
                   {isRecording && (
-                    <span className="flex items-center gap-1 text-red-500">
-                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                    <span className="flex items-center gap-1" style={{ color: 'var(--brand-red)' }}>
+                      <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: 'var(--brand-red)' }} />
                       Recording...
                     </span>
-                  )}
-                  {isTranscribing && (
-                    <span className="text-blue-500">Transcribing...</span>
                   )}
                   {messages.length > 0 && (
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={clearChat}
-                      className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
+                      className="h-6 px-2 text-xs hover:text-destructive"
+                      style={{ color: 'var(--brand-gray-400)' }}
                       title="Clear chat history"
                     >
                       <Trash2 className="h-3 w-3" />

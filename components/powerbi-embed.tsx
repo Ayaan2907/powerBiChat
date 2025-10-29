@@ -331,9 +331,9 @@ export function PowerBIEmbed({ reportId, embedUrl, accessToken, onDataExport }: 
   }, [report, onDataExport])
 
   return (
-    <div className="h-full overflow-hidden border border-border/40 rounded-xl shadow-sm">
+    <div className="h-full overflow-hidden border border-border/40 rounded-xl shadow-sm powerbi-container powerbi-report-container">
       {error && (
-        <Alert variant="destructive" className="m-4">
+        <Alert variant="destructive" className="m-4 print-hidden">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription className="text-sm">
             <div className="font-semibold mb-1">Power BI Embed Error</div>
@@ -346,7 +346,7 @@ export function PowerBIEmbed({ reportId, embedUrl, accessToken, onDataExport }: 
       )}
 
       {isLoading && !error && (
-        <div className="flex items-center justify-center h-full bg-background">
+        <div className="flex items-center justify-center h-full bg-background print-hidden">
           <div className="text-center space-y-2">
             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
             <p className="text-sm text-muted-foreground">Loading Power BI report...</p>
@@ -354,7 +354,12 @@ export function PowerBIEmbed({ reportId, embedUrl, accessToken, onDataExport }: 
         </div>
       )}
 
-      <div ref={embedContainer} className="w-full h-full" style={{ minHeight: "600px" }} />
+      <div 
+        ref={embedContainer} 
+        className="w-full h-full powerbi-embed" 
+        style={{ minHeight: "600px" }}
+        data-powerbi="true"
+      />
     </div>
   )
 }
