@@ -27,12 +27,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000", 
-        "http://localhost:3001",
-        # "https://*.ngrok.io",
-        # "https://*.ngrok-free.app",
-        # "https://*.vercel.app",
-        # "https://*.netlify.app"
-        "*"  # Allow all origins for ngrok and other external services FIXME: Remove this in production
+        "http://localhost:3001", 
+        "https://horse-adequate-literally.ngrok-free.app",
+        "*"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -265,10 +262,10 @@ INSTRUCTIONS:
 
         # Build user message with context
         user_message = f"""USER QUESTION:
-{question}
-{data_context}
-{filter_context}
-{image_context}"""
+{question}|\n\n
+DATA CONTEXT:{data_context}|\n\n
+FILTER CONTEXT: {filter_context}|\n\n
+IMAGE CONTEXT: {image_context}"""
 
         # Prepare messages for OpenAI API
         messages = [

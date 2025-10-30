@@ -24,7 +24,11 @@ interface AIChatProps {
   apiEndpoint?: string
 }
 
-export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChatProps) {
+const getApiBaseUrl = () => {
+  return process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
+}
+
+export function AIChat({ apiEndpoint = `${getApiBaseUrl()}/analyze` }: AIChatProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -189,7 +193,7 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
       })
 
       console.log('Sending transcription request to backend...')
-      const response = await fetch('http://localhost:8000/transcribe', {
+      const response = await fetch(`${getApiBaseUrl()}/transcribe`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -312,7 +316,7 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
       // Generate new audio for this message
       setLoadingAudioIndex(messageIndex)
       
-      const response = await fetch('http://localhost:8000/text-to-speech', {
+      const response = await fetch(`${getApiBaseUrl()}/text-to-speech`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -742,7 +746,7 @@ export function AIChat({ apiEndpoint = "http://localhost:8000/analyze" }: AIChat
                       </Badge>
                     </div>
                     <p className="text-xs" style={{ color: 'var(--brand-gray-400)' }}>
-                      Powered by AdvancelQ.ai
+                      AdvanceIQ.ai Risk Intelligence Agent
                     </p>
                   </div>
                 </div>
