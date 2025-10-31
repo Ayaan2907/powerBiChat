@@ -28,6 +28,7 @@ allowed_origins = [
     "http://localhost:3001", 
     "https://*.vercel.app",            # All Vercel deployments
     "https://horse-adequate-literally.ngrok-free.app",  # Your ngrok URL
+    "*" # Allow all origins (for testing purposes only; 
 ]
 
 # Add environment-specific origins

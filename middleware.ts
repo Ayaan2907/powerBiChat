@@ -6,6 +6,7 @@ const isPublicRoute = createRouteMatcher([
   "/sign-up(.*)",
   "/api/webhooks(.*)",
   "/api/health",
+  "/", // FIXME: Home page is public
   // Add any other public routes here
 ]);
 
