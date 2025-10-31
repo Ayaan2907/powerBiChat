@@ -39,13 +39,13 @@ interface GenerateTokenResult {
  * Get Azure AD access token for Power BI API
  */
 export async function getAzureADToken(): Promise<string> {
-  const clientId = process.env.POWER_BI_CLIENT_ID
-  const clientSecret = process.env.POWER_BI_CLIENT_SECRET
-  const tenantId = process.env.POWER_BI_TENANT_ID
+  const clientId = process.env.POWERBI_CLIENT_ID
+  const clientSecret = process.env.POWERBI_CLIENT_SECRET
+  const tenantId = process.env.POWERBI_TENANT_ID
 
   if (!clientId || !clientSecret || !tenantId) {
     throw new Error(
-      "Missing Azure AD credentials. Please set POWER_BI_CLIENT_ID, POWER_BI_CLIENT_SECRET, and POWER_BI_TENANT_ID",
+      "Missing Azure AD credentials. Please set POWERBI_CLIENT_ID, POWERBI_CLIENT_SECRET, and POWERBI_TENANT_ID",
     )
   }
 

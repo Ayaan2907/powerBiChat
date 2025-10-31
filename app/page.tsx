@@ -7,15 +7,35 @@ import { AIChat } from "@/components/ai-chat"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, Loader2, User, Printer } from "lucide-react"
+import { AlertCircle, Loader2, User, FileDown, Download } from "lucide-react"
 import { usePowerBIToken } from "@/hooks/use-powerbi-token"
+import { usePowerBIExport } from "@/hooks/use-powerbi-export"
 
 export default function Page() {
   const { isLoaded, isSignedIn, user } = useUser()
   const { config: powerBIConfig, isLoading, error } = usePowerBIToken()
+  const { startExport, isExporting, exportProgress, exportStatus, error: exportError, resetExport } = usePowerBIExport()
 
-  const handlePrint = () => {
-    window.print()
+  const handleExport = async () => {
+    try {
+      // Extract workspace ID from embed URL if not provided directly
+      let workspaceId = powerBIConfig?.workspaceId
+      if (!workspaceId && powerBIConfig?.embedUrl) {
+        const match = powerBIConfig.embedUrl.match(/\/groups\/([^\/]+)\//)
+        if (match) {
+          workspaceId = match[1]
+        }
+      }
+
+      await startExport({
+        format: "PDF",
+        reportId: powerBIConfig?.reportId,
+        workspaceId
+      })
+    } catch (error) {
+      console.error("Export failed:", error)
+      // Error is already handled by the hook
+    }
   }
 
   // Show loading while Clerk is initializing
@@ -158,20 +178,29 @@ export default function Page() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={handlePrint}
-          className="h-8 w-8 p-0 print-hidden"
-          style={{ color: 'var(--brand-gray-400)' }}
+          onClick={handleExport}
+          disabled={isExporting}
+          className="h-8 w-8 p-0"
+          style={{ color: isExporting ? 'var(--brand-gray-600)' : 'var(--brand-gray-400)' }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--brand-teal)'
-            e.currentTarget.style.color = 'var(--brand-navy)'
+            if (!isExporting) {
+              e.currentTarget.style.backgroundColor = 'var(--brand-teal)'
+              e.currentTarget.style.color = 'var(--brand-navy)'
+            }
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'transparent'
-            e.currentTarget.style.color = 'var(--brand-gray-400)'
+            if (!isExporting) {
+              e.currentTarget.style.backgroundColor = 'transparent'
+              e.currentTarget.style.color = 'var(--brand-gray-400)'
+            }
           }}
-          title="Print Dashboard"
+          title={isExporting ? `Exporting... ${exportProgress}%` : "Export Report as PDF"}
         >
-          <Printer className="h-4 w-4" />
+          {isExporting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <FileDown className="h-4 w-4" />
+          )}
         </Button>
         <span className="text-sm" style={{ color: 'white' }}>
           {user?.firstName || user?.emailAddresses[0]?.emailAddress || 'User'}
@@ -207,6 +236,63 @@ export default function Page() {
           </div>
         </div>
       </div>
+
+      {/* Export Status Overlay */}
+      {(isExporting || exportError || (exportStatus && !isExporting && exportStatus.includes("completed"))) && (
+        <div className="fixed top-20 right-4 z-50 max-w-sm">
+          <Card className="border shadow-lg" style={{ backgroundColor: 'var(--brand-navy)', borderColor: 'var(--brand-teal)' }}>
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0">
+                  {isExporting ? (
+                    <Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--brand-teal)' }} />
+                  ) : exportError ? (
+                    <AlertCircle className="h-5 w-5" style={{ color: '#ef4444' }} />
+                  ) : (
+                    <Download className="h-5 w-5" style={{ color: '#22c55e' }} />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium" style={{ color: 'white' }}>
+                    {exportError ? 'Export Failed' : isExporting ? 'Exporting Report' : 'Export Complete'}
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: 'var(--brand-gray-400)' }}>
+                    {exportError || exportStatus || 'PDF download should start automatically'}
+                  </p>
+                  {isExporting && exportProgress > 0 && (
+                    <div className="mt-2">
+                      <div className="flex justify-between text-xs mb-1" style={{ color: 'var(--brand-gray-400)' }}>
+                        <span>Progress</span>
+                        <span>{exportProgress}%</span>
+                      </div>
+                      <div className="w-full bg-gray-700 rounded-full h-1.5">
+                        <div 
+                          className="h-1.5 rounded-full transition-all duration-300" 
+                          style={{ 
+                            backgroundColor: 'var(--brand-teal)', 
+                            width: `${exportProgress}%` 
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {(exportError || (!isExporting && exportStatus && exportStatus.includes("completed"))) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={resetExport}
+                      className="mt-2 h-6 px-2 text-xs"
+                      style={{ color: 'var(--brand-teal)' }}
+                    >
+                      Dismiss
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* AI Chat Popup - Fixed Position */}
       <AIChat />
