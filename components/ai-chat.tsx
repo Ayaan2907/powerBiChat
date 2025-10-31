@@ -706,7 +706,7 @@ export function AIChat({ apiEndpoint = `${getApiBaseUrl()}/analyze` }: AIChatPro
               <img 
                 src="/advancelq-icon.svg" 
                 alt="AdvancelQ" 
-                className="h-10 w-10 flex-shrink-0 mt-1"
+                className="h-8 w-10 flex-shrink-0 mt-1"
               />
             )}
             
@@ -727,8 +727,8 @@ export function AIChat({ apiEndpoint = `${getApiBaseUrl()}/analyze` }: AIChatPro
 
       {/* Chat Overlay - Fixed Right Side */}
       {isExpanded && (
-        <div className="fixed inset-0 z-50 flex items-center justify-end p-4 animate-fade-in">
-          <div className="w-full max-w-md h-[90vh] md:h-[80vh] lg:max-w-lg xl:max-w-xl backdrop-blur-md border border-border/40 rounded-l-2xl shadow-2xl overflow-hidden animate-slide-in flex flex-col" style={{ backgroundColor: 'rgba(10, 10, 36, 0.75)' }}>
+        <div className="fixed right-0 top-0 bottom-0 z-50 flex items-center justify-end p-4 animate-fade-in" style={{ width: 'min(25rem, 80vw)' }}>
+          <div className="w-full h-[80vh] md:h-[80vh] backdrop-blur-md border border-border/40 rounded-l-2xl shadow-2xl overflow-hidden animate-slide-in flex flex-col" style={{ backgroundColor: 'rgba(10, 10, 36, 0.75)' }}>
             {/* Header - AdvancelQ.ai Branded */}
             <div className="border-b px-4 py-3" style={{ borderColor: 'var(--brand-teal)', backgroundColor: 'var(--brand-navy)' }}>
               <div className="flex items-center justify-between">
