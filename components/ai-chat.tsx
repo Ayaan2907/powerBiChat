@@ -12,7 +12,13 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import rehypeRaw from "rehype-raw"
 import rehypeSanitize from "rehype-sanitize"
-import { ReactMediaRecorder } from "react-media-recorder"
+import dynamic from "next/dynamic"
+
+// Dynamically import ReactMediaRecorder to avoid SSR issues
+const ReactMediaRecorder = dynamic(
+  () => import("react-media-recorder").then((mod) => ({ default: mod.ReactMediaRecorder })),
+  { ssr: false }
+)
 
 interface Message {
   role: "user" | "assistant"
